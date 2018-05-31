@@ -3,6 +3,15 @@ image: rust:1.26
 pipelines:
   default:
     - step:
+        name: Build and test
         script:
           - cargo build
           - cargo test
+    - step:
+        name: Build and deploy
+        deployment: test
+        script:
+          - cargo build --release
+          - export HOST=iptvdream.zapto.org
+          - scp ./target/release/epg-server $USERNAME@$HOST epg-server
+          - ssh $USERNAME@$HOST sudo systemctl restart epg-server
