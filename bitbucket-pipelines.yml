@@ -19,7 +19,7 @@ pipelines:
           - cargo build --release
           - export HOST=iptvdream.zapto.org
           - scp ./target/release/epg-server $USERNAME@$HOST:~/epg-server
-          - ssh $USERNAME@$HOST sudo systemctl restart epg-server
+          - ssh $USERNAME@$HOST sudo /bin/systemctl restart epg-server
 
 definitions:
   caches:
