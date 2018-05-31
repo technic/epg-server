@@ -5,6 +5,7 @@ pipelines:
     - step:
         name: Build and test
         script:
+          - echo $CARGO_HOME
           - cargo build
           - cargo test
     - step:
