@@ -6,6 +6,7 @@ pipelines:
         name: Build and test
         caches:
           - cargo
+          - rust-target
         script:
           - echo $CARGO_HOME
           - cargo build
@@ -15,6 +16,7 @@ pipelines:
         deployment: test
         caches:
           - cargo
+          - rust-target
         script:
           - cargo build --release
           - export HOST=iptvdream.zapto.org
@@ -25,3 +27,4 @@ pipelines:
 definitions:
   caches:
     cargo: /usr/local/cargo # CARGO_HOME
+    rust-target: $BITBUCKET_CLONE_DIR/target
