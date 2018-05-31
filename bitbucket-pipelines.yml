@@ -1,0 +1,8 @@
+image: rust:1.26
+
+pipelines:
+  default:
+    - step:
+        script:
+          - cargo build
+          - cargo test
