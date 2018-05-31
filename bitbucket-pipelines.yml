@@ -4,6 +4,8 @@ pipelines:
   default:
     - step:
         name: Build and test
+        caches:
+          - cargo
         script:
           - echo $CARGO_HOME
           - cargo build
@@ -11,8 +13,14 @@ pipelines:
     - step:
         name: Build and deploy
         deployment: test
+        caches:
+          - cargo
         script:
           - cargo build --release
           - export HOST=iptvdream.zapto.org
-          - scp ./target/release/epg-server $USERNAME@$HOST epg-server
+          - scp ./target/release/epg-server $USERNAME@$HOST:~/epg-server
           - ssh $USERNAME@$HOST sudo systemctl restart epg-server
+
+definitions:
+  caches:
+    cargo: /usr/local/cargo # CARGO_HOME
