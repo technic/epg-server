@@ -576,5 +576,5 @@ fn main() {
     //        let data = req.get::<persistent::State<EpgServer>>().unwrap();
     //    }
 
-    Iron::new(chain).http("0.0.0.0:3000").unwrap();
+    Iron::new(chain).http("localhost:3000").unwrap();
 }
