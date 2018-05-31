@@ -1,4 +1,4 @@
-image: rust:1.26
+image: rust:1.26-jessie
 
 pipelines:
   default:
