@@ -21,6 +21,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::str;
 use std::sync::RwLock;
+use std::io::Read;
 use std::time::SystemTime;
 use urlencoded::UrlEncodedQuery;
 use xml::attribute::OwnedAttribute;
@@ -397,15 +398,11 @@ macro_rules! try_handler {
     };
 }
 
-fn main() {
-    println!("epg server starting");
 
-    let result = reqwest::get("http://epg.it999.ru/edem.xml.gz").expect("epg download failed");
-    let gz = GzDecoder::new(result);
+fn read_xmltv<R: Read>(source: R) -> HashMap<i32,  Channel> {
 
     let mut channels: HashMap<i32, Channel> = HashMap::new();
-
-    let parser = EventReader::new_with_config(gz, ParserConfig::new().trim_whitespace(true));
+    let parser = EventReader::new_with_config(source, ParserConfig::new().trim_whitespace(true));
 
     #[derive(Debug)]
     enum Level {
@@ -490,11 +487,20 @@ fn main() {
     for mut channel in channels.values_mut() {
         channel.sort_programs()
     }
+    channels
+}
+
+
+fn main() {
+    println!("epg server starting");
+
+    let result = reqwest::get("http://epg.it999.ru/edem.xml.gz").expect("epg download failed");
+    let gz = GzDecoder::new(result);
 
     use iron::mime::Mime;
 //    let content_type = "application/json".parse::<Mime>().unwrap();
     let mut epg_cache = EpgServer::new();
-    epg_cache.channels = channels;
+    epg_cache.channels = read_xmltv(gz);
 
     let mut router = Router::new();
     router.get("/epg_day", get_epg_day, "get_epg_day");
