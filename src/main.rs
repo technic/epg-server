@@ -1,10 +1,10 @@
 extern crate chrono;
 extern crate flate2;
 extern crate iron;
-extern crate router;
 extern crate persistent;
-extern crate urlencoded;
 extern crate reqwest;
+extern crate router;
+extern crate urlencoded;
 extern crate xml;
 
 extern crate serde;
@@ -19,9 +19,9 @@ use iron::status;
 use router::Router;
 use std::collections::HashMap;
 use std::fmt;
+use std::io::Read;
 use std::str;
 use std::sync::RwLock;
-use std::io::Read;
 use std::time::SystemTime;
 use urlencoded::UrlEncodedQuery;
 use xml::attribute::OwnedAttribute;
@@ -164,11 +164,7 @@ impl Channel {
             .binary_search_by(|p| p.begin.cmp(&from))
             .unwrap_or_else(|i| i);
         use std::cmp;
-        let a = if idx > 0 {
-            idx-1
-        } else {
-            idx
-        };
+        let a = if idx > 0 { idx - 1 } else { idx };
         let b = cmp::min(a + count, self.programs.len());
         &self.programs[a..b]
     }
@@ -269,7 +265,6 @@ fn get_attribute<'a>(name: &str, attributes: &'a [OwnedAttribute]) -> Option<&'a
     }
     result
 }
-
 
 struct LiveCache {
     data: Vec<EpgNow>,
@@ -377,7 +372,6 @@ impl Key for EpgServer {
     type Value = EpgServer;
 }
 
-
 macro_rules! try_handler {
     ($e:expr) => {
         match $e {
@@ -398,9 +392,7 @@ macro_rules! try_handler {
     };
 }
 
-
-fn read_xmltv<R: Read>(source: R) -> HashMap<i32,  Channel> {
-
+fn read_xmltv<R: Read>(source: R) -> HashMap<i32, Channel> {
     let mut channels: HashMap<i32, Channel> = HashMap::new();
     let parser = EventReader::new_with_config(source, ParserConfig::new().trim_whitespace(true));
 
@@ -490,7 +482,6 @@ fn read_xmltv<R: Read>(source: R) -> HashMap<i32,  Channel> {
     channels
 }
 
-
 fn main() {
     println!("epg server starting");
 
@@ -498,7 +489,7 @@ fn main() {
     let gz = GzDecoder::new(result);
 
     use iron::mime::Mime;
-//    let content_type = "application/json".parse::<Mime>().unwrap();
+    //    let content_type = "application/json".parse::<Mime>().unwrap();
     let mut epg_cache = EpgServer::new();
     epg_cache.channels = read_xmltv(gz);
 
@@ -567,7 +558,10 @@ fn main() {
             let t = SystemTime::now();
             let out = data.get_epg_list(Utc.timestamp(time, 0));
             let d = t.elapsed().unwrap();
-            println!("req processed in {} sec", d.as_secs() as f64 + d.subsec_nanos() as f64 * 1e-9);
+            println!(
+                "req processed in {} sec",
+                d.as_secs() as f64 + d.subsec_nanos() as f64 * 1e-9
+            );
             Ok(Response::with((
                 status::Ok,
                 "application/json".parse::<Mime>().unwrap(),
