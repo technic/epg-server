@@ -4,6 +4,9 @@ Description=EPG Server
 [Service]
 Environment=RUST_LOG=info
 ExecStart=/usr/local/bin/epg-server
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=epg-server
 
 [Install]
 WantedBy=multi-user.target
