@@ -9,7 +9,7 @@ pipelines:
           - rust-target
         script:
           - echo $CARGO_HOME
-          - cargo install rustfmt
+          - rustup component add rustfmt-preview
           - cargo fmt -- --write-mode=diff
           - cargo build
           - cargo test
