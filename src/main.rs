@@ -4,6 +4,7 @@ extern crate iron;
 extern crate persistent;
 extern crate reqwest;
 extern crate router;
+extern crate timer;
 extern crate urlencoded;
 extern crate xml;
 
@@ -16,13 +17,16 @@ use chrono::prelude::*;
 use flate2::read::GzDecoder;
 use iron::prelude::*;
 use iron::status;
+use reqwest::header::{HttpDate, LastModified};
 use router::Router;
 use std::collections::HashMap;
 use std::fmt;
 use std::io::Read;
+use std::ops::Deref;
 use std::str;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 use std::time::SystemTime;
+use timer::Timer;
 use urlencoded::UrlEncodedQuery;
 use xml::attribute::OwnedAttribute;
 use xml::reader::{EventReader, ParserConfig, XmlEvent};
@@ -293,14 +297,14 @@ struct EpgNow {
 }
 
 struct EpgServer {
-    channels: HashMap<i32, Channel>,
+    channels: RwLock<HashMap<i32, Channel>>,
     cache: RwLock<LiveCache>,
 }
 
 impl EpgServer {
     fn new() -> Self {
         EpgServer {
-            channels: HashMap::new(),
+            channels: RwLock::new(HashMap::new()),
             cache: RwLock::new(LiveCache {
                 data: Vec::new(),
                 begin: 0,
@@ -309,20 +313,27 @@ impl EpgServer {
         }
     }
 
-    fn get_epg_day(&self, id: i32, date: chrono::Date<Utc>) -> Option<&[Program]> {
+    fn set_data(&self, data: HashMap<i32, Channel>) {
+        let mut channels = self.channels.write().unwrap();
+        *channels = data;
+    }
+
+    fn get_epg_day(&self, id: i32, date: chrono::Date<Utc>) -> Option<Vec<Program>> {
         println!("get_epg_day {} {}", id, date);
         let a = date.and_hms(0, 0, 0).timestamp();
         let b = date.and_hms(23, 59, 59).timestamp();
-        if let Some(channel) = self.channels.get(&id) {
-            Some(channel.programs_range(a, b))
+        let channels = self.channels.read().unwrap();
+        if let Some(channel) = channels.get(&id) {
+            Some(channel.programs_range(a, b).to_vec())
         } else {
             None
         }
     }
 
-    fn get_epg_now(&self, id: i32, time: chrono::DateTime<Utc>) -> Option<&[Program]> {
-        if let Some(channel) = self.channels.get(&id) {
-            Some(channel.programs_at(time.timestamp(), 3))
+    fn get_epg_now(&self, id: i32, time: chrono::DateTime<Utc>) -> Option<Vec<Program>> {
+        let channels = self.channels.read().unwrap();
+        if let Some(channel) = channels.get(&id) {
+            Some(channel.programs_at(time.timestamp(), 3).to_vec())
         } else {
             None
         }
@@ -338,7 +349,8 @@ impl EpgServer {
         } else {
             drop(cache);
             let mut cache = self.cache.write().unwrap();
-            cache.data = self.channels
+            let channels = self.channels.read().unwrap();
+            cache.data = channels
                 .values()
                 .map(|c| EpgNow {
                     channel_id: c.id,
@@ -486,18 +498,46 @@ fn main() {
     println!("epg server starting");
 
     let result = reqwest::get("http://epg.it999.ru/edem.xml.gz").expect("epg download failed");
+    let mut last_changed =
+        (result.headers().get::<LastModified>().unwrap().deref() as &HttpDate).clone();
+    println!("last modified {}", last_changed);
+
     let gz = GzDecoder::new(result);
 
     use iron::mime::Mime;
     //    let content_type = "application/json".parse::<Mime>().unwrap();
     let mut epg_cache = EpgServer::new();
-    epg_cache.channels = read_xmltv(gz);
+    epg_cache.set_data(read_xmltv(gz));
+
+    let epg_wrapper = Arc::new(epg_cache);
+
+    let timer = Timer::new();
+    let guard = timer.schedule_repeating(chrono::Duration::hours(3), {
+        let epg_wrapper = epg_wrapper.clone();
+        move || {
+            println!("check for new epg");
+            let result = reqwest::get("http://epg.it999.ru/edem.xml.gz").unwrap();
+            let t = (result.headers().get::<LastModified>().unwrap().deref() as &HttpDate).clone();
+            println!("last modified {}", t);
+            if t > last_changed {
+                last_changed = t;
+                let gz = GzDecoder::new(result);
+                println!("loading xmltv");
+                let channels = read_xmltv(gz);
+                epg_wrapper.set_data(channels);
+                println!("updated epg cache");
+            } else {
+                println!("already up to date");
+            }
+        }
+    });
 
     let mut router = Router::new();
     router.get("/epg_day", get_epg_day, "get_epg_day");
     router.get("/epg_list", get_epg_list, "get_epg_list");
     let mut chain = Chain::new(router);
-    chain.link(persistent::Read::<EpgServer>::both(epg_cache));
+    // FIXME: superfluous nested Arc
+    chain.link(persistent::Read::<EpgServer>::both(epg_wrapper));
 
     fn get_epg_day(req: &mut Request) -> IronResult<Response> {
         println!("get_epg_day");
@@ -529,8 +569,8 @@ fn main() {
 
             if let Some(list) = data.get_epg_day(id, date) {
                 #[derive(Serialize)]
-                struct Data<'a> {
-                    data: &'a [Program],
+                struct Data {
+                    data: Vec<Program>,
                 }
                 let response = Data { data: list };
                 let out = serde_json::to_string(&response).unwrap();
