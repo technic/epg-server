@@ -130,7 +130,7 @@ impl ProgramParser {
             match a.name.local_name.as_ref() {
                 "start" => self.program.begin = to_timestamp(&a.value),
                 "stop" => self.program.end = to_timestamp(&a.value),
-                "channel" => self.channel_id = a.value.parse().unwrap(),
+                "channel" => self.channel_id = a.value.parse().unwrap_or(0),
                 _ => {
                     panic!("unknown attribute {}", a.name.local_name);
                 }
@@ -245,7 +245,7 @@ impl ChannelParser {
         for a in attributes {
             match a.name.local_name.as_ref() {
                 "id" => {
-                    self.channel.id = a.value.parse().unwrap();
+                    self.channel.id = a.value.parse().unwrap_or(0);
                 }
                 _ => {
                     panic!("Unknown attribute {}", a.name);
@@ -468,7 +468,7 @@ fn read_xmltv<R: Read>(source: R) -> HashMap<i32, Channel> {
                         level = Level::Top;
                         let id = program_handler.channel_id;
                         let program = program_handler.program;
-                        if channels.contains_key(&id) {
+                        if id != 0 && channels.contains_key(&id) {
                             let channel = channels.get_mut(&id).unwrap();
                             channel.programs.push(program);
                             i += 1;
