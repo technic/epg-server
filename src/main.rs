@@ -246,6 +246,9 @@ impl ChannelParser {
             match a.name.local_name.as_ref() {
                 "id" => {
                     self.channel.id = a.value.parse().unwrap_or(0);
+                    if self.channel.id == 0 {
+                        println!("bad id {}", a.value);
+                    }
                 }
                 _ => {
                     panic!("Unknown attribute {}", a.name);
