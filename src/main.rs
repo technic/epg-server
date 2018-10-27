@@ -1,4 +1,5 @@
 extern crate chrono;
+extern crate clap;
 extern crate flate2;
 extern crate iron;
 extern crate persistent;
@@ -498,6 +499,27 @@ fn read_xmltv<R: Read>(source: R) -> HashMap<i32, Channel> {
 }
 
 fn main() {
+    let args = clap::App::new("epg server")
+        .version("0.1")
+        .author("technic93")
+        .about("Serves xmltv in json format")
+        .arg(
+            clap::Arg::with_name("port")
+                .long("port")
+                .takes_value(true)
+                .default_value("3000")
+                .help("The port to listen to"),
+        )
+        .get_matches();
+
+    let port = {
+        let s = args.value_of("port").unwrap();
+        s.parse::<i32>().unwrap_or_else(|e| {
+            eprintln!("Bad port argument '{}', {}.", s, e);
+            std::process::exit(1);
+        })
+    };
+
     println!("epg server starting");
 
     let result = reqwest::get("http://epg.it999.ru/edem.xml.gz").expect("epg download failed");
@@ -619,5 +641,7 @@ fn main() {
     //        let data = req.get::<persistent::State<EpgServer>>().unwrap();
     //    }
 
-    Iron::new(chain).http("localhost:3000").unwrap();
+    Iron::new(chain)
+        .http(format!("localhost:{}", port))
+        .unwrap();
 }
