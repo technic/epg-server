@@ -571,7 +571,6 @@ fn main() {
     chain.link(persistent::Read::<EpgServer>::both(epg_wrapper));
 
     fn get_epg_day(req: &mut Request) -> IronResult<Response> {
-        println!("get_epg_day");
         let data = req.get::<persistent::Read<EpgServer>>().unwrap();
         let params = try_handler!(req.get_ref::<UrlEncodedQuery>());
 
@@ -581,7 +580,6 @@ fn main() {
         ) {
             let id: i32 = try_handler!(id.parse());
 
-            println!("{}", day);
             let mut date;
             let v = day.split(".").collect::<Vec<&str>>();
             if v.len() == 3 {
@@ -595,8 +593,6 @@ fn main() {
                     format!("Bad day {}", day),
                 )));
             }
-
-            println!("{}", date);
 
             if let Some(list) = data.get_epg_day(id, date) {
                 #[derive(Serialize)]
