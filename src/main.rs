@@ -524,10 +524,11 @@ fn main() {
     };
 
     println!("epg server starting");
+    const URL: &'static str = "http://epg.it999.ru/edem.xml.gz";
 
     fn update_epg(last_t: HttpDate, epg_wrapper: &Arc<EpgServer>) -> HttpDate {
         println!("check for new epg");
-        let result = reqwest::get("http://epg.it999.ru/edem.xml.gz").unwrap();
+        let result = reqwest::get(URL).unwrap();
         let t = (result.headers().get::<LastModified>().unwrap().deref() as &HttpDate).clone();
         println!("last modified {}", t);
         if t > last_t {
