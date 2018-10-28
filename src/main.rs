@@ -25,6 +25,7 @@ use std::fmt;
 use std::io::Read;
 use std::ops::Deref;
 use std::str;
+use std::panic;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 use timer::Timer;
@@ -548,7 +549,13 @@ fn main() {
     let guard = timer.schedule_repeating(chrono::Duration::hours(3), {
         let epg_wrapper = epg_wrapper.clone();
         move || {
-            last_changed = update_epg(last_changed, &epg_wrapper);
+            let result = panic::catch_unwind(|| {
+                 update_epg(last_changed, &epg_wrapper)
+            });
+            match result {
+                Ok(t) => last_changed = t,
+                Err(_) => println!("Panic in update_epg!"),
+            }
         }
     });
 
