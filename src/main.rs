@@ -24,8 +24,8 @@ use std::collections::HashMap;
 use std::fmt;
 use std::io::Read;
 use std::ops::Deref;
-use std::str;
 use std::panic;
+use std::str;
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 use timer::Timer;
@@ -523,7 +523,7 @@ fn main() {
 
     println!("epg server starting");
 
-    fn update_epg(last_t :HttpDate, epg_wrapper: &Arc<EpgServer>) -> HttpDate {
+    fn update_epg(last_t: HttpDate, epg_wrapper: &Arc<EpgServer>) -> HttpDate {
         println!("check for new epg");
         let result = reqwest::get("http://epg.it999.ru/edem.xml.gz").unwrap();
         let t = (result.headers().get::<LastModified>().unwrap().deref() as &HttpDate).clone();
@@ -549,9 +549,7 @@ fn main() {
     let guard = timer.schedule_repeating(chrono::Duration::hours(3), {
         let epg_wrapper = epg_wrapper.clone();
         move || {
-            let result = panic::catch_unwind(|| {
-                 update_epg(last_changed, &epg_wrapper)
-            });
+            let result = panic::catch_unwind(|| update_epg(last_changed, &epg_wrapper));
             match result {
                 Ok(t) => last_changed = t,
                 Err(_) => println!("Panic in update_epg!"),
