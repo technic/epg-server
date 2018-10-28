@@ -500,8 +500,10 @@ fn read_xmltv<R: Read>(source: R) -> HashMap<i32, Channel> {
 }
 
 fn main() {
+    const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+
     let args = clap::App::new("epg server")
-        .version("0.1")
+        .version(VERSION)
         .author("technic93")
         .about("Serves xmltv in json format")
         .arg(
