@@ -26,7 +26,7 @@ use std::io::Read;
 use std::ops::Deref;
 use std::str;
 use std::sync::{Arc, RwLock};
-use std::time::SystemTime;
+use std::time::{SystemTime, UNIX_EPOCH};
 use timer::Timer;
 use urlencoded::UrlEncodedQuery;
 use xml::attribute::OwnedAttribute;
@@ -522,40 +522,38 @@ fn main() {
 
     println!("epg server starting");
 
-    let result = reqwest::get("http://epg.it999.ru/edem.xml.gz").expect("epg download failed");
-    let mut last_changed =
-        (result.headers().get::<LastModified>().unwrap().deref() as &HttpDate).clone();
-    println!("last modified {}", last_changed);
+    fn update_epg(last_t :HttpDate, epg_wrapper: &Arc<EpgServer>) -> HttpDate {
+        println!("check for new epg");
+        let result = reqwest::get("http://epg.it999.ru/edem.xml.gz").unwrap();
+        let t = (result.headers().get::<LastModified>().unwrap().deref() as &HttpDate).clone();
+        println!("last modified {}", t);
+        if t > last_t {
+            let gz = GzDecoder::new(result);
+            println!("loading xmltv");
+            let channels = read_xmltv(gz);
+            epg_wrapper.set_data(channels);
+            println!("updated epg cache");
+        } else {
+            println!("already up to date");
+        }
+        t
+    }
 
-    let gz = GzDecoder::new(result);
-
-    use iron::mime::Mime;
-    //    let content_type = "application/json".parse::<Mime>().unwrap();
     let mut epg_cache = EpgServer::new();
-    epg_cache.set_data(read_xmltv(gz));
-
     let epg_wrapper = Arc::new(epg_cache);
+
+    let mut last_changed = update_epg(HttpDate::from(UNIX_EPOCH), &epg_wrapper);
 
     let timer = Timer::new();
     let guard = timer.schedule_repeating(chrono::Duration::hours(3), {
         let epg_wrapper = epg_wrapper.clone();
         move || {
-            println!("check for new epg");
-            let result = reqwest::get("http://epg.it999.ru/edem.xml.gz").unwrap();
-            let t = (result.headers().get::<LastModified>().unwrap().deref() as &HttpDate).clone();
-            println!("last modified {}", t);
-            if t > last_changed {
-                last_changed = t;
-                let gz = GzDecoder::new(result);
-                println!("loading xmltv");
-                let channels = read_xmltv(gz);
-                epg_wrapper.set_data(channels);
-                println!("updated epg cache");
-            } else {
-                println!("already up to date");
-            }
+            last_changed = update_epg(last_changed, &epg_wrapper);
         }
     });
+
+    use iron::mime::Mime;
+    //    let content_type = "application/json".parse::<Mime>().unwrap();
 
     let mut router = Router::new();
     router.get("/epg_day", get_epg_day, "get_epg_day");
