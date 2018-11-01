@@ -10,7 +10,7 @@ pipelines:
         script:
           - echo $CARGO_HOME
           - rustup component add rustfmt-preview
-          - cargo fmt -- --write-mode=diff
+          - cargo fmt -- --check
           - cargo build
           - cargo test
     - step:
