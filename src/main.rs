@@ -374,16 +374,14 @@ impl EpgServer {
             cache.begin = cache
                 .data
                 .iter()
-                .map(|e| e.programs.first().and_then(|p| Some(p.begin)))
-                .map(|ts| ts.unwrap_or(0))
+                .filter_map(|e| e.programs.first().and_then(|p| Some(p.begin)))
                 .max()
                 .unwrap_or(0);
 
             cache.end = cache
                 .data
                 .iter()
-                .map(|e| e.programs.last().and_then(|p| Some(p.end)))
-                .map(|ts| ts.unwrap_or(<i64>::max_value()))
+                .filter_map(|e| e.programs.last().and_then(|p| Some(p.end)))
                 .min()
                 .unwrap_or(0);
 
