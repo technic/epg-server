@@ -1,4 +1,4 @@
-image: rust:1.30-jessie
+image: rust:1.30-stretch
 
 pipelines:
   default:
