@@ -170,9 +170,15 @@ impl Channel {
             .binary_search_by(|p| p.begin.cmp(&from))
             .unwrap_or_else(|i| i);
         use std::cmp;
-        let a = if idx > 0 { idx - 1 } else { idx };
-        let b = cmp::min(a + count, self.programs.len());
-        &self.programs[a..b]
+        if idx > 0 {
+            let a = idx - 1;
+            let b = cmp::min(a + count, self.programs.len());
+            assert!(a < self.programs.len());
+            if self.programs[a].end >= from {
+                return &self.programs[a..b];
+            }
+        }
+        return &[];
     }
 }
 
@@ -646,4 +652,68 @@ fn main() {
     Iron::new(chain)
         .http(format!("localhost:{}", port))
         .unwrap();
+}
+
+#[cfg(test)]
+mod tests {
+    use Channel;
+    use Program;
+
+    fn sample_channel() -> Channel {
+        Channel {
+            id: 0,
+            name: String::new(),
+            icon_url: String::new(),
+            programs: vec![
+                Program {
+                    begin: 10,
+                    end: 20,
+                    title: String::from("a"),
+                    description: String::new(),
+                },
+                Program {
+                    begin: 20,
+                    end: 25,
+                    title: String::from("b"),
+                    description: String::new(),
+                },
+                Program {
+                    begin: 25,
+                    end: 40,
+                    title: String::from("c"),
+                    description: String::new(),
+                },
+            ],
+        }
+    }
+
+    #[test]
+    fn channel_programs_at() {
+        let channel = sample_channel();
+        {
+            let programs = channel.programs_at(15, 2);
+            assert_eq!(programs.len(), 2);
+            assert_eq!(programs[0].title, "a");
+            assert_eq!(programs[1].title, "b");
+        }
+        {
+            let programs = channel.programs_at(21, 2);
+            assert_eq!(programs.len(), 2);
+            assert_eq!(programs[0].title, "b");
+            assert_eq!(programs[1].title, "c");
+        }
+        {
+            let programs = channel.programs_at(0, 1);
+            assert_eq!(programs.len(), 0);
+        }
+        {
+            let programs = channel.programs_at(100, 1);
+            assert_eq!(programs.len(), 0);
+        }
+    }
+
+    //    #[test]
+    //    fn channel_programs_range() {
+    //        panic!("Make this test fail");
+    //    }
 }
