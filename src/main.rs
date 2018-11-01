@@ -154,11 +154,13 @@ impl Channel {
     }
 
     fn programs_range(&self, from: i64, to: i64) -> &[Program] {
-        let index_from = self.programs
+        let index_from = self
+            .programs
             .binary_search_by(|p| p.begin.cmp(&from))
             .unwrap_or_else(|i| i);
 
-        let index_to = self.programs
+        let index_to = self
+            .programs
             .binary_search_by(|p| p.begin.cmp(&to))
             .unwrap_or_else(|i| i);
 
@@ -166,7 +168,8 @@ impl Channel {
     }
 
     fn programs_at(&self, from: i64, count: usize) -> &[Program] {
-        let idx = self.programs
+        let idx = self
+            .programs
             .binary_search_by(|p| p.begin.cmp(&from))
             .unwrap_or_else(|i| i);
         use std::cmp;
@@ -366,8 +369,7 @@ impl EpgServer {
                 .map(|c| EpgNow {
                     channel_id: c.id,
                     programs: c.programs_at(t, 2).to_vec(),
-                })
-                .collect::<Vec<EpgNow>>();
+                }).collect::<Vec<EpgNow>>();
 
             cache.begin = cache
                 .data
@@ -518,8 +520,7 @@ fn main() {
                 .takes_value(true)
                 .default_value("3000")
                 .help("The port to listen to"),
-        )
-        .get_matches();
+        ).get_matches();
 
     let port = {
         let s = args.value_of("port").unwrap();
