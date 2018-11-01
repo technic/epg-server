@@ -520,6 +520,11 @@ fn main() {
                 .takes_value(true)
                 .default_value("3000")
                 .help("The port to listen to"),
+        ).arg(
+            clap::Arg::with_name("url")
+                .long("url")
+                .takes_value(true)
+                .help("xmltv download url"),
         ).get_matches();
 
     let port = {
@@ -531,11 +536,16 @@ fn main() {
     };
 
     println!("epg server starting");
-    const URL: &'static str = "http://epg.it999.ru/edem.xml.gz";
+    let url = args
+        .value_of("url")
+        .unwrap_or_else(|| {
+            eprintln!("Missing url argument");
+            std::process::exit(1);
+        }).to_owned();
 
-    fn update_epg(last_t: HttpDate, epg_wrapper: &Arc<EpgServer>) -> HttpDate {
+    fn update_epg(last_t: HttpDate, epg_wrapper: &Arc<EpgServer>, url: &str) -> HttpDate {
         println!("check for new epg");
-        let result = reqwest::get(URL).unwrap();
+        let result = reqwest::get(url).unwrap();
         let t = (result.headers().get::<LastModified>().unwrap().deref() as &HttpDate).clone();
         println!("last modified {}", t);
         if t > last_t {
@@ -553,13 +563,13 @@ fn main() {
     let mut epg_cache = EpgServer::new();
     let epg_wrapper = Arc::new(epg_cache);
 
-    let mut last_changed = update_epg(HttpDate::from(UNIX_EPOCH), &epg_wrapper);
+    let mut last_changed = update_epg(HttpDate::from(UNIX_EPOCH), &epg_wrapper, &url);
 
     let timer = Timer::new();
     let guard = timer.schedule_repeating(chrono::Duration::hours(3), {
         let epg_wrapper = epg_wrapper.clone();
         move || {
-            let result = panic::catch_unwind(|| update_epg(last_changed, &epg_wrapper));
+            let result = panic::catch_unwind(|| update_epg(last_changed, &epg_wrapper, &url));
             match result {
                 Ok(t) => last_changed = t,
                 Err(_) => println!("Panic in update_epg!"),
