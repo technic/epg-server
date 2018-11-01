@@ -484,7 +484,9 @@ fn read_xmltv<R: Read>(source: R) -> HashMap<i32, Channel> {
                             channel.programs.push(program);
                             i += 1;
                         } else {
-                            println!("Unknown id {}", id)
+                            if id != 0 {
+                                println!("Unknown id {}", id);
+                            }
                         }
                         program_handler = ProgramParser::new();
                     }
