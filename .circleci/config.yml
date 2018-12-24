@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: rust:1.30
+      - image: rust:1.30-stretch
     steps:
       - checkout
       - run:
@@ -10,6 +10,6 @@ jobs:
           command: |
             echo $CARGO_HOME
             rustup component add rustfmt-preview
-            cargo fmt -- --write-mode=diff
+            cargo fmt -- --check
             cargo build
             cargo test
