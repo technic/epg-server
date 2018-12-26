@@ -568,13 +568,13 @@ fn main() {
         t
     }
 
-    let mut epg_cache = EpgServer::new();
+    let epg_cache = EpgServer::new();
     let epg_wrapper = Arc::new(epg_cache);
 
     let mut last_changed = update_epg(HttpDate::from(UNIX_EPOCH), &epg_wrapper, &url);
 
     let timer = Timer::new();
-    let guard = timer.schedule_repeating(chrono::Duration::hours(3), {
+    let _guard = timer.schedule_repeating(chrono::Duration::hours(3), {
         let epg_wrapper = epg_wrapper.clone();
         move || {
             let result = panic::catch_unwind(|| update_epg(last_changed, &epg_wrapper, &url));
