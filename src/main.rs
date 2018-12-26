@@ -302,6 +302,12 @@ impl LiveCache {
         }
         serde_json::to_string(&JsonResponse { data: &self.data }).unwrap()
     }
+
+    fn clear(&mut self) {
+        self.begin = 0;
+        self.end = 0;
+        self.data.clear();
+    }
 }
 
 #[derive(Serialize)]
@@ -330,6 +336,8 @@ impl EpgServer {
     fn set_data(&self, data: HashMap<i32, Channel>) {
         let mut channels = self.channels.write().unwrap();
         *channels = data;
+        let mut cache = self.cache.write().unwrap();
+        cache.clear();
     }
 
     fn get_epg_day(&self, id: i32, date: chrono::Date<Utc>) -> Option<Vec<Program>> {
