@@ -643,10 +643,11 @@ fn main() {
         let data = req.get::<persistent::Read<EpgServer>>().unwrap();
         let time = req
             .get_ref::<UrlEncodedQuery>()
+            .ok()
             .and_then(|params| params.get("time"))
             .and_then(|l| l.last())
             .and_then(|s| s.parse::<i64>().ok())
-            .and_then(|ts| Utc.timestamp(ts, 0))
+            .and_then(|ts| Some(Utc.timestamp(ts, 0)))
             .unwrap_or(Utc::now());
 
         let t = SystemTime::now();
