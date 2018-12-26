@@ -641,27 +641,26 @@ fn main() {
 
     fn get_epg_list(req: &mut Request) -> IronResult<Response> {
         let data = req.get::<persistent::Read<EpgServer>>().unwrap();
-        let params = try_handler!(req.get_ref::<UrlEncodedQuery>());
-        if let Some(time) = params
-            .get("time")
+        let time = req
+            .get_ref::<UrlEncodedQuery>()
+            .and_then(|params| params.get("time"))
             .and_then(|l| l.last())
             .and_then(|s| s.parse::<i64>().ok())
-        {
-            let t = SystemTime::now();
-            let out = data.get_epg_list(Utc.timestamp(time, 0));
-            let d = t.elapsed().unwrap();
-            println!(
-                "req processed in {} sec",
-                d.as_secs() as f64 + d.subsec_nanos() as f64 * 1e-9
-            );
-            Ok(Response::with((
-                status::Ok,
-                "application/json".parse::<Mime>().unwrap(),
-                out,
-            )))
-        } else {
-            Ok(Response::with((status::BadRequest, "Invalid parameters")))
-        }
+            .and_then(|ts| Utc.timestamp(ts, 0))
+            .unwrap_or(Utc::now());
+
+        let t = SystemTime::now();
+        let out = data.get_epg_list(time);
+        let d = t.elapsed().unwrap();
+        println!(
+            "req processed in {} sec",
+            d.as_secs() as f64 + d.subsec_nanos() as f64 * 1e-9
+        );
+        Ok(Response::with((
+            status::Ok,
+            "application/json".parse::<Mime>().unwrap(),
+            out,
+        )))
     }
 
     //    fn get_epg_live(req: &mut Request) -> IronResult<Response> {
