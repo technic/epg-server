@@ -553,7 +553,8 @@ fn main() {
 
     fn update_epg(last_t: HttpDate, epg_wrapper: &Arc<EpgServer>, url: &str) -> HttpDate {
         println!("check for new epg");
-        let result = reqwest::get(url).unwrap();
+        let client = reqwest::Client::builder().gzip(false).build().unwrap();
+        let result = client.get(url).send().unwrap();
         let t = (result.headers().get::<LastModified>().unwrap().deref() as &HttpDate).clone();
         println!("last modified {}", t);
         if t > last_t {
