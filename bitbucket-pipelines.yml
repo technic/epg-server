@@ -1,4 +1,4 @@
-image: rust:1.30-stretch
+image: rust:1.32-stretch
 
 pipelines:
   default:

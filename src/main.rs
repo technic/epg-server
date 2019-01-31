@@ -377,7 +377,8 @@ impl EpgServer {
                 .map(|c| EpgNow {
                     channel_id: c.id,
                     programs: c.programs_at(t, 2).to_vec(),
-                }).collect::<Vec<EpgNow>>();
+                })
+                .collect::<Vec<EpgNow>>();
 
             cache.begin = cache
                 .data
@@ -411,7 +412,7 @@ macro_rules! try_handler {
                 return Ok(Response::with((
                     status::InternalServerError,
                     format!("{:?}", e),
-                )))
+                )));
             }
         }
     };
@@ -528,12 +529,14 @@ fn main() {
                 .takes_value(true)
                 .default_value("3000")
                 .help("The port to listen to"),
-        ).arg(
+        )
+        .arg(
             clap::Arg::with_name("url")
                 .long("url")
                 .takes_value(true)
                 .help("xmltv download url"),
-        ).get_matches();
+        )
+        .get_matches();
 
     let port = {
         let s = args.value_of("port").unwrap();
@@ -549,7 +552,8 @@ fn main() {
         .unwrap_or_else(|| {
             eprintln!("Missing url argument");
             std::process::exit(1);
-        }).to_owned();
+        })
+        .to_owned();
 
     fn update_epg(last_t: HttpDate, epg_wrapper: &Arc<EpgServer>, url: &str) -> HttpDate {
         println!("check for new epg");
