@@ -54,7 +54,7 @@ impl fmt::Display for Program {
 }
 
 struct ProgramParser {
-    channel_id: i32,
+    channel_id: i64,
     program: Program,
     field: Option<ProgramField>,
 }
@@ -94,7 +94,7 @@ impl ProgramParser {
         }
     }
 
-    pub fn handle_event(&mut self, ev: &XmlEvent) -> Option<(i32, Program)> {
+    pub fn handle_event(&mut self, ev: &XmlEvent) -> Option<(i64, Program)> {
         let mut result = None;
         match ev {
             XmlEvent::StartElement {
@@ -142,7 +142,7 @@ impl ProgramParser {
 }
 
 struct Channel {
-    id: i32,
+    id: i64,
     name: String,
     icon_url: String,
     programs: Vec<Program>,
@@ -312,12 +312,12 @@ impl LiveCache {
 
 #[derive(Serialize)]
 struct EpgNow {
-    channel_id: i32,
+    channel_id: i64,
     programs: Vec<Program>,
 }
 
 struct EpgServer {
-    channels: RwLock<HashMap<i32, Channel>>,
+    channels: RwLock<HashMap<i64, Channel>>,
     cache: RwLock<LiveCache>,
 }
 
@@ -333,14 +333,14 @@ impl EpgServer {
         }
     }
 
-    fn set_data(&self, data: HashMap<i32, Channel>) {
+    fn set_data(&self, data: HashMap<i64, Channel>) {
         let mut channels = self.channels.write().unwrap();
         *channels = data;
         let mut cache = self.cache.write().unwrap();
         cache.clear();
     }
 
-    fn get_epg_day(&self, id: i32, date: chrono::Date<Utc>) -> Option<Vec<Program>> {
+    fn get_epg_day(&self, id: i64, date: chrono::Date<Utc>) -> Option<Vec<Program>> {
         println!("get_epg_day {} {}", id, date);
         let a = date.and_hms(0, 0, 0).timestamp();
         let b = date.and_hms(23, 59, 59).timestamp();
@@ -352,7 +352,7 @@ impl EpgServer {
         }
     }
 
-    fn get_epg_now(&self, id: i32, time: chrono::DateTime<Utc>) -> Option<Vec<Program>> {
+    fn get_epg_now(&self, id: i64, time: chrono::DateTime<Utc>) -> Option<Vec<Program>> {
         let channels = self.channels.read().unwrap();
         if let Some(channel) = channels.get(&id) {
             Some(channel.programs_at(time.timestamp(), 3).to_vec())
@@ -423,8 +423,8 @@ macro_rules! try_handler {
     };
 }
 
-fn read_xmltv<R: Read>(source: R) -> HashMap<i32, Channel> {
-    let mut channels: HashMap<i32, Channel> = HashMap::new();
+fn read_xmltv<R: Read>(source: R) -> HashMap<i64, Channel> {
+    let mut channels: HashMap<i64, Channel> = HashMap::new();
     let parser = EventReader::new_with_config(source, ParserConfig::new().trim_whitespace(true));
 
     #[derive(Debug)]
@@ -604,7 +604,7 @@ fn main() {
             params.get("day").and_then(|l| l.last()),
             params.get("id").and_then(|l| l.last()),
         ) {
-            let id: i32 = try_handler!(id.parse());
+            let id: i64 = try_handler!(id.parse());
 
             let mut date;
             let v = day.split(".").collect::<Vec<&str>>();
