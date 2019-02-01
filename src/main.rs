@@ -157,9 +157,7 @@ impl EpgServer {
     }
 }
 
-use iron::typemap::Key;
-
-impl Key for EpgServer {
+impl iron::typemap::Key for EpgServer {
     type Value = EpgServer;
 }
 
