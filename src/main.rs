@@ -32,6 +32,7 @@ use urlencoded::UrlEncodedQuery;
 
 mod epg;
 mod xmltv;
+
 use epg::{Channel, Program};
 use xmltv::read_xmltv;
 
@@ -155,6 +156,7 @@ impl EpgServer {
 }
 
 use iron::typemap::Key;
+
 impl Key for EpgServer {
     type Value = EpgServer;
 }
