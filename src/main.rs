@@ -13,6 +13,7 @@ extern crate serde;
 extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
+extern crate hyper;
 
 use chrono::prelude::*;
 use flate2::read::GzDecoder;
@@ -185,6 +186,11 @@ macro_rules! try_handler {
     };
 }
 
+fn bad_request<E: 'static + Error + Send>(error: E) -> IronError {
+    let m = (status::BadRequest, error.description().to_string());
+    IronError::new(error, m)
+}
+
 fn main() {
     const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -271,20 +277,20 @@ fn main() {
 
     fn get_epg_day(req: &mut Request) -> IronResult<Response> {
         let data = req.get::<persistent::Read<EpgServer>>().unwrap();
-        let params = try_handler!(req.get_ref::<UrlEncodedQuery>());
+        let params = req.get_ref::<UrlEncodedQuery>().map_err(bad_request)?;
 
         if let (Some(day), Some(id)) = (
             params.get("day").and_then(|l| l.last()),
             params.get("id").and_then(|l| l.last()),
         ) {
-            let id: i64 = try_handler!(id.parse());
+            let id: i64 = id.parse().map_err(bad_request)?;
 
             let mut date;
             let v = day.split(".").collect::<Vec<&str>>();
             if v.len() == 3 {
-                let y: i32 = try_handler!(v[0].parse());
-                let m: u32 = try_handler!(v[1].parse());
-                let d: u32 = try_handler!(v[2].parse());
+                let y: i32 = v[0].parse().map_err(bad_request)?;
+                let m: u32 = v[1].parse().map_err(bad_request)?;
+                let d: u32 = v[2].parse().map_err(bad_request)?;
                 date = Utc.ymd(y, m, d);
             } else {
                 return Ok(Response::with((
