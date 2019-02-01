@@ -283,19 +283,9 @@ fn main() {
         ) {
             let id: i64 = id.parse().map_err(bad_request)?;
 
-            let mut date;
-            let v = day.split(".").collect::<Vec<&str>>();
-            if v.len() == 3 {
-                let y: i32 = v[0].parse().map_err(bad_request)?;
-                let m: u32 = v[1].parse().map_err(bad_request)?;
-                let d: u32 = v[2].parse().map_err(bad_request)?;
-                date = Utc.ymd(y, m, d);
-            } else {
-                return Ok(Response::with((
-                    status::BadRequest,
-                    format!("Bad day {}", day),
-                )));
-            }
+            let date = NaiveDate::parse_from_str(day, "%Y.%m.%d")
+                .map(|d| Utc.from_utc_date(&d))
+                .map_err(bad_request)?;
 
             if let Some(list) = data.get_epg_day(id, date) {
                 #[derive(Serialize)]
