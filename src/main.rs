@@ -42,6 +42,14 @@ struct LiveCache {
 }
 
 impl LiveCache {
+    fn new() -> Self {
+        LiveCache {
+            data: Vec::new(),
+            begin: 0,
+            end: 0,
+        }
+    }
+
     fn contains_time(&self, t: i64) -> bool {
         (self.begin <= t && t <= self.end) && self.data.len() > 0
     }
@@ -76,11 +84,7 @@ impl EpgServer {
     fn new() -> Self {
         EpgServer {
             channels: RwLock::new(HashMap::new()),
-            cache: RwLock::new(LiveCache {
-                data: Vec::new(),
-                begin: 0,
-                end: 0,
-            }),
+            cache: RwLock::new(LiveCache::new()),
         }
     }
 
