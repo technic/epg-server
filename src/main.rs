@@ -261,7 +261,7 @@ fn main() {
     router.get("/epg_list", get_epg_list, "get_epg_list");
     let mut chain = Chain::new(router);
     // FIXME: superfluous nested Arc
-    chain.link(persistent::Read::<EpgServer>::both(epg_wrapper));
+    chain.link_before(persistent::Read::<EpgServer>::one(epg_wrapper));
 
     fn get_epg_day(req: &mut Request) -> IronResult<Response> {
         let data = req.get::<persistent::Read<EpgServer>>().unwrap();
