@@ -29,7 +29,7 @@ pub struct Channel {
 }
 
 impl Channel {
-    fn sort_programs(&mut self) {
+    pub fn sort_programs(&mut self) {
         self.programs.sort_by(|a, b| a.begin.cmp(&b.begin));
     }
 
