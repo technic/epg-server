@@ -18,6 +18,7 @@ use chrono::prelude::*;
 use flate2::read::GzDecoder;
 use iron::prelude::*;
 use iron::status;
+use iron::Error;
 use reqwest::header::{HttpDate, LastModified};
 use router::Router;
 use std::collections::HashMap;
@@ -165,10 +166,10 @@ macro_rules! try_handler {
     ($e:expr) => {
         match $e {
             Ok(x) => x,
-            Err(e) => {
+            Err(x) => {
                 return Ok(Response::with((
                     status::InternalServerError,
-                    format!("{:?}", e),
+                    x.description(),
                 )));
             }
         }
@@ -176,7 +177,10 @@ macro_rules! try_handler {
     ($e:expr, $error:expr) => {
         match $e {
             Ok(x) => x,
-            Err(x) => return Ok(Repsonse::with(($error, format!("{:?}", e)))),
+            Err(x) => return Ok(Repsonse::with((
+                    $error,
+                    x.description(),
+                )));
         }
     };
 }
