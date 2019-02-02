@@ -3,6 +3,7 @@ jobs:
   build:
     docker:
       - image: rust:1.32-stretch
+      - image: circleci/mongo:3-stretch
     steps:
       - checkout
       - run:
