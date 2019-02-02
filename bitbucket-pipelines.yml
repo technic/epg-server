@@ -12,6 +12,7 @@ pipelines:
           - rustup component add rustfmt-preview
           - cargo fmt -- --check
           - cargo build
+          - bash setup.sh
           - cargo test
     - step:
         name: Build and deploy
@@ -31,3 +32,7 @@ definitions:
   caches:
     cargo: /usr/local/cargo # CARGO_HOME
     rust-target: $BITBUCKET_CLONE_DIR/target
+
+  services:
+    mongo:
+      image: mongo

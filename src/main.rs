@@ -1,7 +1,9 @@
+extern crate bson;
 extern crate chrono;
 extern crate clap;
 extern crate flate2;
 extern crate iron;
+extern crate mongodb;
 extern crate persistent;
 extern crate reqwest;
 extern crate router;
@@ -33,6 +35,7 @@ use timer::Timer;
 use urlencoded::UrlEncodedQuery;
 
 mod epg;
+mod store;
 mod xmltv;
 
 use epg::{Channel, Program};
@@ -96,6 +99,24 @@ impl EpgServer {
         *channels = data;
         let mut cache = self.cache.write().unwrap();
         cache.clear();
+    }
+
+    fn update_data(&self, mut data: HashMap<i64, Channel>) {
+        {
+            let channels = self.channels.read().unwrap();
+            for channel in channels.values() {
+                if let Some(entry) = data.get_mut(&channel.id) {
+                    entry.prepend_old_programs(channel.programs.as_slice());
+                }
+            }
+        }
+        self.set_data(data);
+        self.save();
+    }
+
+    fn save(&self) {
+        let channels = self.channels.read().unwrap();
+        store::save_to_db(&channels).unwrap();
     }
 
     fn get_epg_day(&self, id: i64, date: chrono::Date<Utc>) -> Option<Vec<Program>> {
@@ -238,7 +259,7 @@ fn main() {
             let gz = GzDecoder::new(result);
             println!("loading xmltv");
             let channels = read_xmltv(gz);
-            epg_wrapper.set_data(channels);
+            epg_wrapper.update_data(channels);
             println!("updated epg cache");
         } else {
             println!("already up to date");
@@ -249,6 +270,14 @@ fn main() {
     let epg_cache = EpgServer::new();
     let epg_wrapper = Arc::new(epg_cache);
 
+    // Firstly, clear old epg entries
+    let time = Utc::now().naive_utc() - chrono::Duration::days(20);
+    store::remove_before(time.timestamp()).unwrap(); // TODO: make cron job
+
+    // Secondly, load epg contained in the persistent database
+    epg_wrapper.set_data(store::load_db().unwrap());
+
+    // Finally, update epg from the url
     let mut last_changed = update_epg(HttpDate::from(UNIX_EPOCH), &epg_wrapper, &url);
 
     let timer = Timer::new();

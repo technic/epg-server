@@ -1,0 +1,17 @@
+version: '3.1'
+
+# Test mongodb environment
+
+services:
+  mongo:
+    image: mongo
+    volumes:
+      - ./setup:/setup
+    ports:
+      - 127.0.0.1:27017:27017
+    container_name: epg_mongodb
+
+  mongo-express:
+    image: mongo-express
+    ports:
+      - 127.0.0.1:8081:8081

@@ -1,7 +1,7 @@
 use chrono::prelude::*;
 use std::fmt;
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Program {
     pub begin: i64,
     pub end: i64,
@@ -21,7 +21,9 @@ impl fmt::Display for Program {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Channel {
+    #[serde(rename = "_id")]
     pub id: i64,
     pub name: String,
     pub icon_url: String,
@@ -31,6 +33,30 @@ pub struct Channel {
 impl Channel {
     pub fn sort_programs(&mut self) {
         self.programs.sort_by(|a, b| a.begin.cmp(&b.begin));
+    }
+
+    pub fn prepend_old_programs(&mut self, programs: &[Program]) {
+        let before = self
+            .programs
+            .first()
+            .map(|p| p.begin)
+            .unwrap_or(i64::max_value());
+        let index = programs
+            .binary_search_by_key(&before, |p| p.begin)
+            .unwrap_or_else(|i| i);
+        // TODO: overlap check
+        let mut result = programs[0..index].to_vec();
+        result.append(&mut self.programs);
+        self.programs = result;
+    }
+
+    pub fn insert_one(&mut self, program: Program) {
+        let index = self
+            .programs
+            .binary_search_by_key(&program.begin, |p| p.begin)
+            .unwrap_or_else(|i| i);
+        // TODO: overlap checks
+        self.programs.insert(index, program);
     }
 
     pub fn programs_range(&self, from: i64, to: i64) -> &[Program] {
@@ -120,6 +146,84 @@ mod tests {
         {
             let programs = channel.programs_at(100, 1);
             assert_eq!(programs.len(), 0);
+        }
+    }
+
+    #[test]
+    fn channel_insert_one() {
+        {
+            let mut channel = sample_channel();
+            channel.insert_one(Program {
+                begin: 45,
+                end: 50,
+                title: String::from("x"),
+                description: String::new(),
+            });
+            assert_eq!(channel.programs[3].title, "x")
+        }
+        {
+            let mut channel = sample_channel();
+            channel.insert_one(Program {
+                begin: 0,
+                end: 10,
+                title: String::from("x"),
+                description: String::new(),
+            });
+            assert_eq!(channel.programs[0].title, "x")
+        }
+    }
+
+    #[test]
+    fn channel_prepend() {
+        {
+            let mut channel = sample_channel();
+            channel.prepend_old_programs(&[
+                Program {
+                    begin: 0,
+                    end: 5,
+                    title: String::from("x"),
+                    description: String::new(),
+                },
+                Program {
+                    begin: 5,
+                    end: 10,
+                    title: String::from("y"),
+                    description: String::new(),
+                },
+            ]);
+            assert_eq!(
+                channel
+                    .programs
+                    .iter()
+                    .map(|p| p.clone().title)
+                    .collect::<Vec<_>>(),
+                ["x", "y", "a", "b", "c"]
+            );
+        }
+        {
+            let mut channel = sample_channel();
+            channel.prepend_old_programs(&[
+                Program {
+                    begin: 6,
+                    end: 11,
+                    title: String::from("x"),
+                    description: String::new(),
+                },
+                Program {
+                    begin: 10,
+                    end: 12,
+                    title: String::from("y"),
+                    description: String::new(),
+                },
+            ]);
+            assert_eq!(
+                channel
+                    .programs
+                    .iter()
+                    .map(|p| p.clone().title)
+                    .collect::<Vec<_>>(),
+                ["x", "a", "b", "c"]
+            );
         }
     }
 
