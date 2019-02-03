@@ -3,15 +3,16 @@ jobs:
   build:
     docker:
       - image: rust:1.32-stretch
-      - image: circleci/mongo:3-stretch
+      - image: circleci/mongo:4-xenial
     steps:
       - checkout
       - run:
           name: Build and test
           command: |
+            apt-get update && apt-get install -y mongodb-clients
+            mongo epg ./setup/create-user.js
             echo $CARGO_HOME
             rustup component add rustfmt-preview
             cargo fmt -- --check
             cargo build
-            ./setup.sh
             cargo test
