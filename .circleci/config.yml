@@ -13,4 +13,5 @@ jobs:
             rustup component add rustfmt-preview
             cargo fmt -- --check
             cargo build
+            ./setup.sh
             cargo test
