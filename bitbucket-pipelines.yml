@@ -8,11 +8,12 @@ pipelines:
           - cargo
           - rust-target
         script:
+          - docker ps
+          - bash setup.sh
           - echo $CARGO_HOME
           - rustup component add rustfmt-preview
           - cargo fmt -- --check
           - cargo build
-          - bash setup.sh
           - cargo test
         services:
           - docker
