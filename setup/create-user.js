@@ -5,5 +5,6 @@ db.createUser(
     pwd: "test",
     roles: [
       { role: "readWrite", db: "epg" }
-    ]
+    ],
+    passwordDigestor: "server"
 });
