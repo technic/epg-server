@@ -8,7 +8,7 @@ pipelines:
           - cargo
           - rust-target
         script:
-          - apt-get update && apt-get install -y mongo-clients
+          - apt-get update && apt-get install -y mongodb-clients
           - mongo epg ./setup/create-user.js
           - echo $CARGO_HOME
           - rustup component add rustfmt-preview
@@ -16,7 +16,6 @@ pipelines:
           - cargo build
           - cargo test
         services:
-          - docker
           - mongo
     - step:
         name: Build and deploy
