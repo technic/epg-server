@@ -8,6 +8,7 @@ pipelines:
           - cargo
           - rust-target
         script:
+          - mongo --version
           - docker ps
           - bash setup.sh
           - echo $CARGO_HOME
