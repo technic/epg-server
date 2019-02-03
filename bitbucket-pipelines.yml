@@ -37,5 +37,5 @@ definitions:
     rust-target: $BITBUCKET_CLONE_DIR/target
 
   services:
-    mongo: 4-xenial
-      image: mongo
+    mongo:
+      image: mongo:4-xenial
