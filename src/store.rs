@@ -9,27 +9,25 @@ use std::env;
 use std::iter::FromIterator;
 
 fn create_client() -> Result<Client, MongoError> {
-    let client: Client = Client::connect("localhost", 27017).unwrap();
+    let client: Client = Client::connect("localhost", 27017)?;
     let db = client.db("epg"); // Database with credentials
     let password = env::var("MONGO_PASS").unwrap_or("test".to_string());
-    db.auth("rust", &password).unwrap();
+    db.auth("rust", &password)?;
     Ok(client)
 }
 
 /// Removes all programs with starting date before `timestamp`.
 pub fn remove_before(timestamp: i64) -> Result<(), MongoError> {
     println!("Removing programs before t={} from mongodb ...", timestamp);
-    let client = create_client().unwrap();
+    let client = create_client()?;
     let coll = client.db("epg").collection("channels");
-    let result = coll
-        .update_many(
-            doc! {},
-            doc! {
-                "$pull" : {"programs" : {"begin": {"$lt": timestamp}}}
-            },
-            None,
-        )
-        .unwrap();
+    let result = coll.update_many(
+        doc! {},
+        doc! {
+            "$pull" : {"programs" : {"begin": {"$lt": timestamp}}}
+        },
+        None,
+    )?;
     println!("mongo {:?}", result);
     Ok(())
 }
