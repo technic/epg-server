@@ -104,9 +104,10 @@ impl EpgServer {
     fn update_data(&self, mut data: HashMap<i64, Channel>) {
         {
             let channels = self.channels.read().unwrap();
+            let time = Utc::now().naive_utc() - chrono::Duration::days(20);
             for channel in channels.values() {
                 if let Some(entry) = data.get_mut(&channel.id) {
-                    entry.prepend_old_programs(channel.programs.as_slice());
+                    entry.prepend_old_programs(&channel.programs, time.timestamp());
                 }
             }
         }

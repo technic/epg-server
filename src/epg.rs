@@ -35,17 +35,20 @@ impl Channel {
         self.programs.sort_by(|a, b| a.begin.cmp(&b.begin));
     }
 
-    pub fn prepend_old_programs(&mut self, programs: &[Program]) {
+    pub fn prepend_old_programs(&mut self, programs: &[Program], after: i64) {
         let before = self
             .programs
             .first()
             .map(|p| p.begin)
             .unwrap_or(i64::max_value());
+        let start_index = programs
+            .binary_search_by_key(&after, |p| p.begin)
+            .unwrap_or_else(|i| i);
         let index = programs
             .binary_search_by_key(&before, |p| p.begin)
             .unwrap_or_else(|i| i);
         // TODO: overlap check
-        let mut result = programs[0..index].to_vec();
+        let mut result = programs[start_index..index].to_vec();
         result.append(&mut self.programs);
         self.programs = result;
     }
@@ -177,20 +180,23 @@ mod tests {
     fn channel_prepend() {
         {
             let mut channel = sample_channel();
-            channel.prepend_old_programs(&[
-                Program {
-                    begin: 0,
-                    end: 5,
-                    title: String::from("x"),
-                    description: String::new(),
-                },
-                Program {
-                    begin: 5,
-                    end: 10,
-                    title: String::from("y"),
-                    description: String::new(),
-                },
-            ]);
+            channel.prepend_old_programs(
+                &[
+                    Program {
+                        begin: 0,
+                        end: 5,
+                        title: String::from("x"),
+                        description: String::new(),
+                    },
+                    Program {
+                        begin: 5,
+                        end: 10,
+                        title: String::from("y"),
+                        description: String::new(),
+                    },
+                ],
+                0,
+            );
             assert_eq!(
                 channel
                     .programs
@@ -202,20 +208,23 @@ mod tests {
         }
         {
             let mut channel = sample_channel();
-            channel.prepend_old_programs(&[
-                Program {
-                    begin: 6,
-                    end: 11,
-                    title: String::from("x"),
-                    description: String::new(),
-                },
-                Program {
-                    begin: 10,
-                    end: 12,
-                    title: String::from("y"),
-                    description: String::new(),
-                },
-            ]);
+            channel.prepend_old_programs(
+                &[
+                    Program {
+                        begin: 6,
+                        end: 11,
+                        title: String::from("x"),
+                        description: String::new(),
+                    },
+                    Program {
+                        begin: 10,
+                        end: 12,
+                        title: String::from("y"),
+                        description: String::new(),
+                    },
+                ],
+                0,
+            );
             assert_eq!(
                 channel
                     .programs
@@ -223,6 +232,34 @@ mod tests {
                     .map(|p| p.clone().title)
                     .collect::<Vec<_>>(),
                 ["x", "a", "b", "c"]
+            );
+        }
+        {
+            let mut channel = sample_channel();
+            channel.prepend_old_programs(
+                &[
+                    Program {
+                        begin: 0,
+                        end: 5,
+                        title: String::from("x"),
+                        description: String::new(),
+                    },
+                    Program {
+                        begin: 5,
+                        end: 10,
+                        title: String::from("y"),
+                        description: String::new(),
+                    },
+                ],
+                3,
+            );
+            assert_eq!(
+                channel
+                    .programs
+                    .iter()
+                    .map(|p| p.clone().title)
+                    .collect::<Vec<_>>(),
+                ["y", "a", "b", "c"]
             );
         }
     }
