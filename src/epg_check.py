@@ -24,5 +24,10 @@ def check_epg(url):
 
 
 if __name__ == "__main__":
-    check_epg('http://iptvdream.zapto.org/epg')
-    check_epg('http://iptvdream.zapto.org/epg-soveni')
+    def _check_epg(url):
+        try:
+            check_epg(url)
+        except Exception as ex:
+            print(ex)
+    _check_epg('http://iptvdream.zapto.org/epg')
+    _check_epg('http://iptvdream.zapto.org/epg-soveni')
