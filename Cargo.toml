@@ -20,6 +20,7 @@ timer = "0.2"
 clap = "2"
 bson = "0.13"
 mongodb = "0.3"
+rusqlite = "*"
 
 [profile.dev]
 opt-level = 1

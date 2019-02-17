@@ -16,6 +16,7 @@ extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
 extern crate hyper;
+extern crate rusqlite;
 
 use chrono::prelude::*;
 use flate2::read::GzDecoder;
@@ -34,12 +35,21 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use timer::Timer;
 use urlencoded::UrlEncodedQuery;
 
+mod db;
 mod epg;
 mod store;
 mod xmltv;
 
-use epg::{Channel, Program, EpgNow};
-use xmltv::read_xmltv;
+use epg::{Channel, EpgNow, Program};
+use rusqlite::Connection;
+use xmltv::XmltvItem;
+use xmltv::XmltvReader;
+
+/// Use this function until #54361 becomes stable
+fn time_elapsed(t: &SystemTime) -> f64 {
+    let d = t.elapsed().unwrap();
+    d.as_secs() as f64 + d.subsec_micros() as f64 * 1e-6
+}
 
 struct LiveCache {
     data: Vec<EpgNow>,
@@ -54,6 +64,27 @@ impl LiveCache {
             begin: 0,
             end: 0,
         }
+    }
+
+    fn set_data(&mut self, data: Vec<EpgNow>) {
+        self.data = data;
+        self.recalculate();
+    }
+
+    fn recalculate(&mut self) {
+        self.begin = self
+            .data
+            .iter()
+            .filter_map(|e| e.programs.first().and_then(|p| Some(p.begin)))
+            .max()
+            .unwrap_or(0);
+
+        self.end = self
+            .data
+            .iter()
+            .filter_map(|e| e.programs.last().and_then(|p| Some(p.end)))
+            .min()
+            .unwrap_or(0);
     }
 
     fn contains_time(&self, t: i64) -> bool {
@@ -146,28 +177,15 @@ impl EpgServer {
             drop(cache);
             let mut cache = self.cache.write().unwrap();
             let channels = self.channels.read().unwrap();
-            cache.data = channels
-                .values()
-                .map(|c| EpgNow {
-                    channel_id: c.id,
-                    programs: c.programs_at(t, 2).to_vec(),
-                })
-                .collect::<Vec<EpgNow>>();
-
-            cache.begin = cache
-                .data
-                .iter()
-                .filter_map(|e| e.programs.first().and_then(|p| Some(p.begin)))
-                .max()
-                .unwrap_or(0);
-
-            cache.end = cache
-                .data
-                .iter()
-                .filter_map(|e| e.programs.last().and_then(|p| Some(p.end)))
-                .min()
-                .unwrap_or(0);
-
+            cache.set_data(
+                channels
+                    .values()
+                    .map(|c| EpgNow {
+                        channel_id: c.id,
+                        programs: c.programs_at(t, 2).to_vec(),
+                    })
+                    .collect::<Vec<EpgNow>>(),
+            );
             cache.to_json()
         }
     }
@@ -175,6 +193,94 @@ impl EpgServer {
 
 impl iron::typemap::Key for EpgServer {
     type Value = EpgServer;
+}
+
+struct EpgSqlServer {
+    cache: RwLock<LiveCache>,
+    file: String,
+}
+
+impl EpgSqlServer {
+    fn new(file: &str) -> Self {
+        let conn = Connection::open(&file).expect("Failed to open database");
+        db::create_tables(&conn).expect("Failed to create tables");
+        Self {
+            cache: RwLock::new(LiveCache::new()),
+            file: file.to_string(),
+        }
+    }
+
+    fn update_data<R: Read>(&self, xmltv: XmltvReader<R>) {
+        let t = SystemTime::now();
+
+        let mut conn = Connection::open(&self.file).unwrap();
+        db::clear_programs_tmp(&conn).unwrap();
+
+        // Clear old epg entries from the database
+        let time = Utc::now().naive_utc() - chrono::Duration::days(20);
+        db::delete_before(&conn, time.timestamp()).unwrap();
+
+        // Drop indexes to speed up insert
+        db::drop_indexes(&conn).unwrap();
+
+        let mut ins_c = 0;
+        let mut ins_p = 0;
+        // Convert xmltv into sql table
+        {
+            let tx = conn.transaction().unwrap();
+            for item in xmltv {
+                match item {
+                    XmltvItem::Channel(channel) => {
+                        db::insert_channel(tx.deref(), &channel).unwrap();
+                        ins_c += 1;
+                    }
+                    XmltvItem::Program((id, program)) => {
+                        db::insert_program(tx.deref(), id, &program).unwrap();
+                        ins_p += 1;
+                    }
+                }
+            }
+            tx.commit().unwrap();
+        }
+
+        println!(
+            "Loaded {} channels and {} programs into sql database in {}s",
+            ins_c,
+            ins_p,
+            time_elapsed(&t)
+        );
+
+        // Merge new programs data into database
+        db::append_programs(&mut conn).unwrap();
+        db::create_indexes(&conn).unwrap();
+    }
+
+    fn get_epg_day(&self, id: i64, date: chrono::Date<Utc>) -> Option<Vec<Program>> {
+        println!("get_epg_day {} {}", id, date);
+        let a = date.and_hms(0, 0, 0).timestamp();
+        let b = date.and_hms(23, 59, 59).timestamp();
+        let conn = Connection::open(&self.file).unwrap();
+        Some(db::get_range(&conn, id, a, b).unwrap())
+    }
+
+    fn get_epg_list(&self, time: chrono::DateTime<Utc>) -> String {
+        let t = time.timestamp();
+        let cache = self.cache.read().unwrap();
+        if cache.contains_time(t) {
+            println!("Using value from cache");
+            cache.to_json()
+        } else {
+            drop(cache);
+            let mut cache = self.cache.write().unwrap();
+            let conn = Connection::open(&self.file).unwrap();
+            cache.set_data(db::get_at(&conn, t, 2).unwrap());
+            cache.to_json()
+        }
+    }
+}
+
+impl iron::typemap::Key for EpgSqlServer {
+    type Value = EpgSqlServer;
 }
 
 macro_rules! try_handler {
@@ -244,7 +350,7 @@ fn main() {
         })
         .to_owned();
 
-    fn update_epg(last_t: HttpDate, epg_wrapper: &Arc<EpgServer>, url: &str) -> HttpDate {
+    fn update_epg(last_t: HttpDate, epg_wrapper: &Arc<EpgSqlServer>, url: &str) -> HttpDate {
         println!("check for new epg");
         let client = reqwest::Client::builder().gzip(false).build().unwrap();
         let result = client.get(url).send().unwrap();
@@ -253,24 +359,19 @@ fn main() {
         if t > last_t {
             let gz = GzDecoder::new(result);
             println!("loading xmltv");
-            let channels = read_xmltv(gz);
-            epg_wrapper.update_data(channels);
-            println!("updated epg cache");
+            let reader = XmltvReader::new(gz);
+            epg_wrapper.update_data(reader);
+            println!("updated epg data");
         } else {
             println!("already up to date");
         }
         t
     }
 
-    let epg_cache = EpgServer::new();
-    let epg_wrapper = Arc::new(epg_cache);
+    let epg_wrapper = Arc::new(EpgSqlServer::new("epg.db"));
 
-    // Firstly, clear old epg entries
-    let time = Utc::now().naive_utc() - chrono::Duration::days(20);
-    store::remove_before(time.timestamp()).unwrap(); // TODO: make cron job
-
-    // Secondly, load epg contained in the persistent database
-    epg_wrapper.set_data(store::load_db().unwrap());
+    //    // Secondly, load epg contained in the persistent database
+    //    epg_wrapper.set_data(store::load_db().unwrap());
 
     // Finally, update epg from the url
     let mut last_changed = update_epg(HttpDate::from(UNIX_EPOCH), &epg_wrapper, &url);
@@ -295,10 +396,10 @@ fn main() {
     router.get("/epg_list", get_epg_list, "get_epg_list");
     let mut chain = Chain::new(router);
     // FIXME: superfluous nested Arc
-    chain.link_before(persistent::Read::<EpgServer>::one(epg_wrapper));
+    chain.link_before(persistent::Read::<EpgSqlServer>::one(epg_wrapper));
 
     fn get_epg_day(req: &mut Request) -> IronResult<Response> {
-        let data = req.get::<persistent::Read<EpgServer>>().unwrap();
+        let data = req.get::<persistent::Read<EpgSqlServer>>().unwrap();
         let params = req.get_ref::<UrlEncodedQuery>().map_err(bad_request)?;
 
         if let (Some(day), Some(id)) = (
@@ -332,7 +433,7 @@ fn main() {
     }
 
     fn get_epg_list(req: &mut Request) -> IronResult<Response> {
-        let data = req.get::<persistent::Read<EpgServer>>().unwrap();
+        let data = req.get::<persistent::Read<EpgSqlServer>>().unwrap();
         let time = req
             .get_ref::<UrlEncodedQuery>()
             .ok()
