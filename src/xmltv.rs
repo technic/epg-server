@@ -1,4 +1,5 @@
 use chrono::prelude::*;
+use epg::ChannelInfo;
 use epg::{Channel, Program};
 use std::collections::HashMap;
 use std::io::Read;
@@ -7,7 +8,6 @@ use std::time::SystemTime;
 use xml::attribute::OwnedAttribute;
 use xml::reader::Events;
 use xml::reader::{EventReader, ParserConfig, XmlEvent};
-use epg::ChannelInfo;
 
 struct ProgramParser {
     channel_id: i64,
@@ -284,7 +284,6 @@ impl<R: Read> Iterator for XmltvReader<R> {
                 }
             }
         }
-        None
     }
 }
 
