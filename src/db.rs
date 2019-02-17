@@ -170,18 +170,24 @@ pub fn append_programs(conn: &mut Connection) -> Result<()> {
         // Remove programs from database, which times conflict with new data
         let mut total = 0;
         let tx = conn.transaction()?;
-        for id in channels.iter() {
-            let count = tx.execute(
+        {
+            let mut stmt = tx.prepare(
                 "delete from programs where programs.channel=?1 and
                  programs.begin >= (select min(p1.begin) from programs1 p1 where p1.channel=?1)",
-                &[&id],
             )?;
-            total += count;
+            for id in channels.iter() {
+                let count = stmt.execute(&[&id])?;
+                total += count;
+            }
         }
-        println!("Deleted {} programs from sql database", total);
+        println!("Deleted {} conflicting programs from sql database", total);
 
         // Copy new data into the database
-        total = tx.execute("insert into programs select * from programs1", NO_PARAMS)?;
+        total = tx.execute(
+            "insert into programs (channel, begin, end, title, description)
+             select channel, \"begin\", \"end\", title, description from programs1",
+            NO_PARAMS,
+        )?;
         println!("Inserted {} new programs", total);
 
         tx.commit()?;
