@@ -252,7 +252,7 @@ impl EpgSqlServer {
         db::append_programs(&mut conn).unwrap();
         db::create_indexes(&conn).unwrap();
 
-        print!("Database transactions took {}s", time_elapsed(&t));
+        println!("Database transactions took {}s", time_elapsed(&t));
     }
 
     fn get_epg_day(&self, id: i64, date: chrono::Date<Utc>) -> Option<Vec<Program>> {
