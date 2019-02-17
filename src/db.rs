@@ -213,10 +213,13 @@ mod tests {
     use epg::Program;
     use rusqlite::Connection;
     use std::fs;
+    use std::path::Path;
 
     #[test]
     fn test_database() {
-        fs::remove_file("test.db").unwrap();
+        if Path::new("test.db").exists() {
+            fs::remove_file("test.db").unwrap();
+        }
         let mut db = Connection::open("test.db").unwrap();
         create_tables(&db).unwrap();
 
