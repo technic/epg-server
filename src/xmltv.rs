@@ -5,6 +5,7 @@ use std::io::Read;
 use std::str;
 use std::time::SystemTime;
 use xml::attribute::OwnedAttribute;
+use xml::reader::Events;
 use xml::reader::{EventReader, ParserConfig, XmlEvent};
 
 struct ProgramParser {
@@ -54,7 +55,7 @@ impl ProgramParser {
             XmlEvent::StartElement {
                 name, attributes, ..
             } => {
-                if name.local_name == ProgramParser::TAG {
+                if name.local_name == Self::TAG {
                     self.parse_attributes(&attributes);
                 } else {
                     self.field = name.local_name.parse().ok();
@@ -70,8 +71,9 @@ impl ProgramParser {
                 _ => {}
             },
             XmlEvent::EndElement { name } => {
-                if name.local_name == ProgramParser::TAG {
-                    result = Some((self.channel_id, self.program.clone()))
+                if name.local_name == Self::TAG {
+                    result = Some((self.channel_id, self.program.clone()));
+                    self.reset();
                 }
             }
             _ => {
@@ -92,6 +94,10 @@ impl ProgramParser {
                 }
             }
         }
+    }
+
+    fn reset(&mut self) {
+        *self = Self::new();
     }
 }
 
@@ -138,7 +144,7 @@ impl ChannelParser {
             XmlEvent::StartElement {
                 name, attributes, ..
             } => {
-                if name.local_name == ChannelParser::TAG {
+                if name.local_name == Self::TAG {
                     self.parse_attributes(&attributes);
                 } else {
                     self.field = name.local_name.parse().ok();
@@ -154,9 +160,12 @@ impl ChannelParser {
                 }
                 _ => {}
             },
-            XmlEvent::EndElement { name } => if name.local_name == ProgramParser::TAG {
-                result = Some(self.channel.clone());
-            },
+            XmlEvent::EndElement { name } => {
+                if name.local_name == Self::TAG {
+                    result = Some(self.channel.clone());
+                    self.reset();
+                }
+            }
             _ => {
                 panic!("unexpected event {:?}", ev);
             }
@@ -179,6 +188,10 @@ impl ChannelParser {
             }
         }
     }
+
+    fn reset(&mut self) {
+        *self = Self::new();
+    }
 }
 
 fn to_timestamp(s: &str) -> i64 {
@@ -196,94 +209,122 @@ fn get_attribute<'a>(name: &str, attributes: &'a [OwnedAttribute]) -> Option<&'a
     result
 }
 
-pub fn read_xmltv<R: Read>(source: R) -> HashMap<i64, Channel> {
-    let mut channels: HashMap<i64, Channel> = HashMap::new();
-    let parser = EventReader::new_with_config(source, ParserConfig::new().trim_whitespace(true));
+#[derive(Debug)]
+enum Level {
+    Top,
+    Channel,
+    Program,
+}
 
-    #[derive(Debug)]
-    enum Level {
-        Top,
-        Channel,
-        Program,
-    }
+pub struct XmltvReader<R: Read> {
+    level: Level,
+    parser: Events<R>,
+    channel_parser: ChannelParser,
+    program_parser: ProgramParser,
+}
 
-    let mut level = Level::Top;
-    let mut channel_handler = ChannelParser::new();
-    let mut program_handler = ProgramParser::new();
-
-    let mut i = 0;
-
-    let t = SystemTime::now();
-
-    for ev in parser {
-        let ev = ev.expect("xml error");
-        //        println!("{}", i);
-        match level {
-            Level::Top => match ev {
-                XmlEvent::StartElement { ref name, .. } => match name.local_name.as_ref() {
-                    ProgramParser::TAG => {
-                        level = Level::Program;
-                        program_handler.handle_event(&ev);
-                    }
-                    ChannelParser::TAG => {
-                        level = Level::Channel;
-                        channel_handler.handle_event(&ev);
-                    }
-                    _ => {
-                        eprintln!("unknown tag {}", name.local_name);
-                    }
-                },
-                _ => {}
-            },
-            Level::Channel => match ev {
-                XmlEvent::EndElement { ref name, .. } => {
-                    channel_handler.handle_event(&ev);
-                    if name.local_name == ChannelParser::TAG {
-                        level = Level::Top;
-                        let channel = channel_handler.channel;
-                        if !channels.contains_key(&channel.id) {
-                            channels.insert(channel.id, channel);
-                        } else {
-                            println!("Duplicate id {}", channel.id)
-                        }
-                        channel_handler = ChannelParser::new();
-                    }
-                }
-                _ => {
-                    channel_handler.handle_event(&ev);
-                }
-            },
-            Level::Program => match ev {
-                XmlEvent::EndElement { ref name } => {
-                    program_handler.handle_event(&ev);
-                    if name.local_name == ProgramParser::TAG {
-                        level = Level::Top;
-                        let id = program_handler.channel_id;
-                        let program = program_handler.program;
-                        if id != 0 && channels.contains_key(&id) {
-                            let channel = channels.get_mut(&id).unwrap();
-                            channel.programs.push(program);
-                            i += 1;
-                        } else {
-                            if id != 0 {
-                                println!("Unknown id {}", id);
-                            }
-                        }
-                        program_handler = ProgramParser::new();
-                    }
-                }
-                _ => {
-                    program_handler.handle_event(&ev);
-                }
-            },
+impl<R: Read> XmltvReader<R> {
+    pub fn new(source: R) -> Self {
+        Self {
+            level: Level::Top,
+            parser: EventReader::new_with_config(source, ParserConfig::new().trim_whitespace(true))
+                .into_iter(),
+            channel_parser: ChannelParser::new(),
+            program_parser: ProgramParser::new(),
         }
     }
+}
 
-    println!("Downloaded epg for {} channels", channels.len());
-    println!("Time elapsed: {:?}", t.elapsed().unwrap());
+#[derive(Debug)]
+pub enum XmltvItem {
+    Channel(Channel),
+    Program((i64, Program)),
+}
+
+impl<R: Read> Iterator for XmltvReader<R> {
+    type Item = XmltvItem;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let ev = match self.parser.next() {
+                Some(ev) => ev.unwrap(),
+                None => return None,
+            };
+            match self.level {
+                Level::Top => match ev {
+                    XmlEvent::StartElement { ref name, .. } => match name.local_name.as_ref() {
+                        ProgramParser::TAG => {
+                            self.level = Level::Program;
+                            self.program_parser.handle_event(&ev);
+                        }
+                        ChannelParser::TAG => {
+                            self.level = Level::Channel;
+                            self.channel_parser.handle_event(&ev);
+                        }
+                        _ => {
+                            eprintln!("unknown tag {}", name.local_name);
+                        }
+                    },
+                    _ => {}
+                },
+                Level::Channel => {
+                    let result = self.channel_parser.handle_event(&ev);
+                    if let Some(channel) = result {
+                        self.level = Level::Top;
+                        return Some(XmltvItem::Channel(channel));
+                    }
+                }
+                Level::Program => {
+                    let result = self.program_parser.handle_event(&ev);
+                    if let Some((id, program)) = result {
+                        self.level = Level::Top;
+                        return Some(XmltvItem::Program((id, program)));
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+pub fn read_xmltv<R: Read>(source: R) -> HashMap<i64, Channel> {
+    let t = SystemTime::now();
+
+    let mut channels: HashMap<i64, Channel> = HashMap::new();
+    let reader = XmltvReader::new(source);
+    for item in reader {
+        match item {
+            XmltvItem::Channel(channel) => {
+                if !channels.contains_key(&channel.id) {
+                    channels.insert(channel.id, channel);
+                } else {
+                    println!("Duplicate id {}", channel.id)
+                }
+            }
+            XmltvItem::Program((id, program)) => {
+                if id != 0 && channels.contains_key(&id) {
+                    let channel = channels.get_mut(&id).unwrap();
+                    channel.programs.push(program);
+                } else {
+                    if id != 0 {
+                        println!("Unknown id {}", id);
+                    }
+                }
+            }
+        }
+    }
 
     for mut channel in channels.values_mut() {
         channel.sort_programs()
     }
+
+    println!("Loaded epg for {} channels", channels.len());
+    println!(
+        "Total {} programs",
+        channels.values().fold(0, |tot, c| tot + c.programs.len())
+    );
+    println!("Time elapsed: {:?}", t.elapsed().unwrap());
+
     channels
 }
