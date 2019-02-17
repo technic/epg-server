@@ -130,10 +130,7 @@ pub fn insert_program(conn: &Connection, channel: i64, program: &Program) -> Res
 }
 
 pub fn create_indexes(conn: &Connection) -> Result<()> {
-    conn.execute(
-        "create index channel on programs (channel)",
-        NO_PARAMS,
-    )?;
+    conn.execute("create index channel on programs (channel)", NO_PARAMS)?;
     conn.execute(
         "create index channel_begin on programs (channel, begin)",
         NO_PARAMS,
@@ -205,11 +202,11 @@ pub fn delete_before(conn: &Connection, timestamp: i64) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    use db::*;
     use epg::ChannelInfo;
     use epg::Program;
     use rusqlite::Connection;
     use std::fs;
-    use db::*;
 
     #[test]
     fn test_database() {
@@ -217,24 +214,33 @@ mod tests {
         let mut db = Connection::open("test.db").unwrap();
         create_tables(&db).unwrap();
 
-        insert_channel(&db, &ChannelInfo {
-            id: 1,
-            name: "ch1".to_string(),
-            icon_url: String::new(),
-        })
-            .unwrap();
-        insert_channel(&db, &ChannelInfo {
-            id: 2,
-            name: "ch2".to_string(),
-            icon_url: String::new(),
-        })
-            .unwrap();
-        insert_channel(&db, &ChannelInfo {
-            id: 3,
-            name: "ch3".to_string(),
-            icon_url: String::new(),
-        })
-            .unwrap();
+        insert_channel(
+            &db,
+            &ChannelInfo {
+                id: 1,
+                name: "ch1".to_string(),
+                icon_url: String::new(),
+            },
+        )
+        .unwrap();
+        insert_channel(
+            &db,
+            &ChannelInfo {
+                id: 2,
+                name: "ch2".to_string(),
+                icon_url: String::new(),
+            },
+        )
+        .unwrap();
+        insert_channel(
+            &db,
+            &ChannelInfo {
+                id: 3,
+                name: "ch3".to_string(),
+                icon_url: String::new(),
+            },
+        )
+        .unwrap();
 
         let channels = get_channels(&db).unwrap();
         assert_eq!(
@@ -296,7 +302,7 @@ mod tests {
             assert_eq!(ids, vec![1, 2]);
         }
 
-        for r in get_at(&db,10, 2).unwrap().iter() {
+        for r in get_at(&db, 10, 2).unwrap().iter() {
             println!("{:?}", r);
             assert!(r.programs.len() <= 2);
             let p1 = r.programs.first().unwrap();
