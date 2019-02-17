@@ -7,6 +7,7 @@ use std::time::SystemTime;
 use xml::attribute::OwnedAttribute;
 use xml::reader::Events;
 use xml::reader::{EventReader, ParserConfig, XmlEvent};
+use epg::ChannelInfo;
 
 struct ProgramParser {
     channel_id: i64,
@@ -119,7 +120,7 @@ impl str::FromStr for ChannelField {
 }
 
 struct ChannelParser {
-    channel: Channel,
+    channel: ChannelInfo,
     field: Option<ChannelField>,
 }
 
@@ -128,17 +129,16 @@ impl ChannelParser {
 
     pub fn new() -> Self {
         ChannelParser {
-            channel: Channel {
+            channel: ChannelInfo {
                 id: 0,
                 name: String::new(),
                 icon_url: String::new(),
-                programs: Vec::new(),
             },
             field: None,
         }
     }
 
-    pub fn handle_event(&mut self, ev: &XmlEvent) -> Option<Channel> {
+    pub fn handle_event(&mut self, ev: &XmlEvent) -> Option<ChannelInfo> {
         let mut result = None;
         match ev {
             XmlEvent::StartElement {
@@ -237,7 +237,7 @@ impl<R: Read> XmltvReader<R> {
 
 #[derive(Debug)]
 pub enum XmltvItem {
-    Channel(Channel),
+    Channel(ChannelInfo),
     Program((i64, Program)),
 }
 
@@ -297,7 +297,7 @@ pub fn read_xmltv<R: Read>(source: R) -> HashMap<i64, Channel> {
         match item {
             XmltvItem::Channel(channel) => {
                 if !channels.contains_key(&channel.id) {
-                    channels.insert(channel.id, channel);
+                    channels.insert(channel.id, Channel::from_info(channel));
                 } else {
                     println!("Duplicate id {}", channel.id)
                 }

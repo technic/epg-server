@@ -27,7 +27,7 @@ pub struct EpgNow {
     pub programs: Vec<Program>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ChannelInfo {
     pub id: i64,
     pub name: String,
@@ -44,6 +44,15 @@ pub struct Channel {
 }
 
 impl Channel {
+    pub fn from_info(c: ChannelInfo) -> Self {
+        Self {
+            id: c.id,
+            name: c.name,
+            icon_url: c.icon_url,
+            programs: Vec::new(),
+        }
+    }
+
     pub fn sort_programs(&mut self) {
         self.programs.sort_by(|a, b| a.begin.cmp(&b.begin));
     }
