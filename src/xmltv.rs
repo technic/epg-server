@@ -133,7 +133,7 @@ impl ChannelParser {
     }
 
     pub fn handle_event(&mut self, ev: &XmlEvent) -> Option<Channel> {
-        let result = None;
+        let mut result = None;
         match ev {
             XmlEvent::StartElement {
                 name, attributes, ..
@@ -154,7 +154,9 @@ impl ChannelParser {
                 }
                 _ => {}
             },
-            XmlEvent::EndElement { name } => if name.local_name == ProgramParser::TAG {},
+            XmlEvent::EndElement { name } => if name.local_name == ProgramParser::TAG {
+                result = Some(self.channel.clone());
+            },
             _ => {
                 panic!("unexpected event {:?}", ev);
             }
