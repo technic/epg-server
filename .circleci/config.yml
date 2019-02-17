@@ -26,7 +26,7 @@ jobs:
           command: echo $UPDATE_FINGERPRINT >> ~/.ssh/known_hosts
       - run:
           name: Release build
-          command: |
+          command: >
             OPENSSL_STATIC=1 OPENSSL_LIB_DIR=/usr/lib/x86_64-linux-gnu OPENSSL_INCLUDE_DIR=/usr/include/openssl
             cargo build --release
       - save_cache:
