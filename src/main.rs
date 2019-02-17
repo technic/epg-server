@@ -38,7 +38,7 @@ mod epg;
 mod store;
 mod xmltv;
 
-use epg::{Channel, Program};
+use epg::{Channel, Program, EpgNow};
 use xmltv::read_xmltv;
 
 struct LiveCache {
@@ -73,12 +73,6 @@ impl LiveCache {
         self.end = 0;
         self.data.clear();
     }
-}
-
-#[derive(Serialize)]
-struct EpgNow {
-    channel_id: i64,
-    programs: Vec<Program>,
 }
 
 struct EpgServer {

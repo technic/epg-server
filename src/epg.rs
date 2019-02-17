@@ -21,6 +21,19 @@ impl fmt::Display for Program {
     }
 }
 
+#[derive(Serialize, Debug)]
+pub struct EpgNow {
+    pub channel_id: i64,
+    pub programs: Vec<Program>,
+}
+
+#[derive(Debug)]
+pub struct ChannelInfo {
+    pub id: i64,
+    pub name: String,
+    pub icon_url: String,
+}
+
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Channel {
     #[serde(rename = "_id")]
