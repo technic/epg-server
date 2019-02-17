@@ -244,15 +244,15 @@ impl EpgSqlServer {
         }
 
         println!(
-            "Loaded {} channels and {} programs into sql database in {}s",
-            ins_c,
-            ins_p,
-            time_elapsed(&t)
+            "Loaded {} channels and {} programs into sql database",
+            ins_c, ins_p
         );
 
         // Merge new programs data into database
         db::append_programs(&mut conn).unwrap();
         db::create_indexes(&conn).unwrap();
+
+        print!("Database transactions took {}s", time_elapsed(&t));
     }
 
     fn get_epg_day(&self, id: i64, date: chrono::Date<Utc>) -> Option<Vec<Program>> {
