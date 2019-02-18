@@ -31,6 +31,8 @@ use std::ops::Deref;
 use std::panic;
 use std::str;
 use std::sync::{Arc, RwLock};
+use std::thread;
+use std::time;
 use std::time::{SystemTime, UNIX_EPOCH};
 use timer::Timer;
 use urlencoded::UrlEncodedQuery;
@@ -373,18 +375,19 @@ fn main() {
     //    // Secondly, load epg contained in the persistent database
     //    epg_wrapper.set_data(store::load_db().unwrap());
 
-    // Finally, update epg from the url
-    let mut last_changed = update_epg(HttpDate::from(UNIX_EPOCH), &epg_wrapper, &url);
-
-    let timer = Timer::new();
-    let _guard = timer.schedule_repeating(chrono::Duration::hours(3), {
+    let _child = thread::spawn({
         let epg_wrapper = epg_wrapper.clone();
         move || {
-            let result = panic::catch_unwind(|| update_epg(last_changed, &epg_wrapper, &url));
-            match result {
-                Ok(t) => last_changed = t,
-                Err(_) => println!("Panic in update_epg!"),
+            let mut last_changed = HttpDate::from(UNIX_EPOCH);
+            loop {
+                let result = panic::catch_unwind(|| update_epg(last_changed, &epg_wrapper, &url));
+                match result {
+                    Ok(t) => last_changed = t,
+                    Err(_) => println!("Panic in update_epg!"),
+                }
+                thread::sleep(time::Duration::from_secs(3 * 60 * 60));
             }
+            let mut last_changed = update_epg(HttpDate::from(UNIX_EPOCH), &epg_wrapper, &url);
         }
     });
 
