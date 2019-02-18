@@ -4,6 +4,7 @@ use rusqlite::{Connection, Result, NO_PARAMS};
 use std::collections::HashMap;
 
 pub fn create_tables(conn: &Connection) -> Result<()> {
+    conn.execute_batch("pragma journal_mode=WAL")?;
     conn.execute(
         "create table if not exists channels \
          (id integer primary key, name text, icon_url text)",
