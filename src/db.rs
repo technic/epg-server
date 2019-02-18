@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 pub fn create_tables(conn: &Connection) -> Result<()> {
     conn.execute_batch("pragma journal_mode=WAL")?;
+    conn.execute_batch("pragma cache_size=10000")?;
     conn.execute(
         "create table if not exists channels \
          (id integer primary key, name text, icon_url text)",
