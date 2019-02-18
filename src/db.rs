@@ -158,6 +158,8 @@ pub fn clear_programs_tmp(conn: &Connection) -> Result<()> {
 }
 
 pub fn append_programs(conn: &mut Connection) -> Result<()> {
+    conn.execute("create index p1_channel on programs1 (channel)", NO_PARAMS)?;
+
     let channels = {
         let mut stmt = conn.prepare("select distinct p1.channel from programs1 p1")?;
         let it = stmt
@@ -184,12 +186,15 @@ pub fn append_programs(conn: &mut Connection) -> Result<()> {
         }
         println!("Deleted {} conflicting programs from sql database", total);
 
+        // Drop indexes to speed up insert
+        drop_indexes(&tx)?;
         // Copy new data into the database
         total = tx.execute(
             "insert into programs (channel, begin, end, title, description)
              select channel, \"begin\", \"end\", title, description from programs1",
             NO_PARAMS,
         )?;
+        create_indexes(&tx)?;
         println!("Inserted {} new programs", total);
 
         tx.commit()?;

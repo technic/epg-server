@@ -46,6 +46,7 @@ use epg::{Channel, EpgNow, Program};
 use rusqlite::Connection;
 use xmltv::XmltvItem;
 use xmltv::XmltvReader;
+use rusqlite::NO_PARAMS;
 
 /// Use this function until #54361 becomes stable
 fn time_elapsed(t: &SystemTime) -> f64 {
@@ -216,17 +217,16 @@ impl EpgSqlServer {
         let t = SystemTime::now();
 
         let mut conn = Connection::open(&self.file).unwrap();
+        conn.execute("drop index if exists p1_channel", NO_PARAMS).unwrap();
         db::clear_programs_tmp(&conn).unwrap();
 
         // Clear old epg entries from the database
         let time = Utc::now().naive_utc() - chrono::Duration::days(20);
         db::delete_before(&conn, time.timestamp()).unwrap();
 
-        // Drop indexes to speed up insert
-        db::drop_indexes(&conn).unwrap();
-
         let mut ins_c = 0;
         let mut ins_p = 0;
+        println!("Parsing XMLTV entries into database ...");
         // Convert xmltv into sql table
         {
             let tx = conn.transaction().unwrap();
@@ -252,7 +252,6 @@ impl EpgSqlServer {
 
         // Merge new programs data into database
         db::append_programs(&mut conn).unwrap();
-        db::create_indexes(&conn).unwrap();
 
         println!("Database transactions took {}s", time_elapsed(&t));
     }
