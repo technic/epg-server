@@ -2,17 +2,27 @@ use epg::{ChannelInfo, EpgNow, Program};
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Result, NO_PARAMS};
 use std::collections::HashMap;
+use std::io::Read;
+use std::ops::Deref;
+use xmltv::XmltvItem;
+use xmltv::XmltvReader;
 
-pub fn create_tables(conn: &Connection) -> Result<()> {
-    conn.execute_batch("pragma journal_mode=WAL")?;
-    conn.execute_batch("pragma cache_size=10000")?;
-    conn.execute(
-        "create table if not exists channels \
-         (id integer primary key, name text, icon_url text)",
-        NO_PARAMS,
-    )?;
-    conn.execute(
-        "create table if not exists programs (
+pub struct ProgramsDatabase {
+    file: String,
+}
+
+impl ProgramsDatabase {
+    pub fn open(file: &str) -> Result<Self> {
+        let conn = Connection::open(&file)?;
+        conn.execute_batch("pragma journal_mode=WAL")?;
+        conn.execute_batch("pragma cache_size=10000")?;
+        conn.execute(
+            "create table if not exists channels \
+             (id integer primary key, name text, icon_url text)",
+            NO_PARAMS,
+        )?;
+        conn.execute(
+            "create table if not exists programs (
              id integer primary key autoincrement,
              channel integer,
              begin integer,
@@ -20,10 +30,10 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
              title text,
              description text
              )",
-        NO_PARAMS,
-    )?;
-    conn.execute(
-        "create table if not exists programs1 (
+            NO_PARAMS,
+        )?;
+        conn.execute(
+            "create table if not exists programs1 (
              id integer primary key autoincrement,
              channel integer,
              begin integer,
@@ -31,79 +41,134 @@ pub fn create_tables(conn: &Connection) -> Result<()> {
              title text,
              description text
              )",
-        NO_PARAMS,
-    )?;
-    Ok(())
-}
+            NO_PARAMS,
+        )?;
+        Ok(Self {
+            file: file.to_string(),
+        })
+    }
 
-pub fn get_channels(conn: &Connection) -> Result<Vec<ChannelInfo>> {
-    let mut stmt = conn
-        .prepare("select id, name, icon_url from channels")
-        .unwrap();
-    let it = stmt
-        .query_map(NO_PARAMS, |row| ChannelInfo {
-            id: row.get(0),
-            name: row.get(1),
-            icon_url: row.get(2),
-        })?
-        .filter_map(|item| item.ok());
-    Ok(it.collect::<Vec<_>>())
-}
+    pub fn load_xmltv<R: Read>(&self, xmltv: XmltvReader<R>) -> Result<()> {
+        let mut conn = Connection::open(&self.file)?;
 
-pub fn get_at(conn: &Connection, timestamp: i64, count: i64) -> Result<Vec<EpgNow>> {
-    let mut stmt = conn.prepare(
-        "select
+        // Make sure that temporary storage is clean
+        conn.execute("drop index if exists p1_channel", NO_PARAMS)?;
+        conn.execute("delete from programs1", NO_PARAMS)?;
+
+        let mut ins_c = 0;
+        let mut ins_p = 0;
+        println!("Parsing XMLTV entries into database ...");
+        // Convert xmltv into sql table
+        {
+            let tx = conn.transaction()?;
+            for item in xmltv {
+                match item {
+                    XmltvItem::Channel(channel) => {
+                        insert_channel(tx.deref(), &channel)?;
+                        ins_c += 1;
+                    }
+                    XmltvItem::Program((id, program)) => {
+                        insert_program(tx.deref(), id, &program)?;
+                        ins_p += 1;
+                    }
+                }
+            }
+            tx.commit().unwrap();
+        }
+
+        println!(
+            "Loaded {} channels and {} programs into sql database",
+            ins_c, ins_p
+        );
+
+        // Merge new programs data into database
+        append_programs(&mut conn)?;
+        Ok(())
+    }
+
+    pub fn get_channels(&self) -> Result<Vec<ChannelInfo>> {
+        let conn = Connection::open(&self.file)?;
+        let mut stmt = conn
+            .prepare("select id, name, icon_url from channels")
+            .unwrap();
+        let it = stmt
+            .query_map(NO_PARAMS, |row| ChannelInfo {
+                id: row.get(0),
+                name: row.get(1),
+                icon_url: row.get(2),
+            })?
+            .filter_map(|item| item.ok());
+        Ok(it.collect::<Vec<_>>())
+    }
+
+    pub fn get_at(&self, timestamp: i64, count: i64) -> Result<Vec<EpgNow>> {
+        let conn = Connection::open(&self.file)?;
+        let mut stmt = conn.prepare(
+            "select
                 channels.id,
                 programs.begin, programs.end, programs.title, programs.description
              from channels
              join programs on programs.id in
              (select programs.id from programs where
               programs.channel=channels.id AND programs.end > ?1 order by programs.end limit ?2)",
-    )?;
+        )?;
 
-    let mut hash: HashMap<i64, EpgNow> = HashMap::new();
+        let mut hash: HashMap<i64, EpgNow> = HashMap::new();
 
-    let it = stmt.query_map(&[&timestamp, &count], |row| {
-        let id: i64 = row.get(0);
-        let program = Program {
-            begin: row.get(1),
-            end: row.get(2),
-            title: row.get(3),
-            description: row.get(4),
-        };
-        (id, program)
-    })?;
+        let it = stmt.query_map(&[&timestamp, &count], |row| {
+            let id: i64 = row.get(0);
+            let program = Program {
+                begin: row.get(1),
+                end: row.get(2),
+                title: row.get(3),
+                description: row.get(4),
+            };
+            (id, program)
+        })?;
 
-    for (id, program) in it.filter_map(|item| item.ok()) {
-        hash.entry(id)
-            .or_insert(EpgNow {
-                channel_id: id,
-                programs: Vec::new(),
-            })
-            .programs
-            .push(program);
+        for (id, program) in it.filter_map(|item| item.ok()) {
+            hash.entry(id)
+                .or_insert(EpgNow {
+                    channel_id: id,
+                    programs: Vec::new(),
+                })
+                .programs
+                .push(program);
+        }
+        Ok(hash.into_iter().map(|(_id, value)| value).collect())
     }
-    Ok(hash.into_iter().map(|(_id, value)| value).collect())
-}
 
-pub fn get_range(conn: &Connection, id: i64, from: i64, to: i64) -> Result<Vec<Program>> {
-    let mut stmt = conn.prepare(
-        "select programs.begin, programs.end, programs.title, programs.description
+    pub fn get_range(&self, id: i64, from: i64, to: i64) -> Result<Vec<Program>> {
+        let conn = Connection::open(&self.file)?;
+        let mut stmt = conn.prepare(
+            "select programs.begin, programs.end, programs.title, programs.description
          from programs where
          programs.channel = ?1 and programs.begin >= ?2 and programs.begin < ?3",
-    )?;
-    let it = stmt
-        .query_map(&[&id, &from, &to], |row| Program {
-            begin: row.get(0),
-            end: row.get(1),
-            title: row.get(2),
-            description: row.get(3),
-        })?
-        .filter_map(|item| item.ok());
-    Ok(it.collect::<Vec<_>>())
+        )?;
+        let it = stmt
+            .query_map(&[&id, &from, &to], |row| Program {
+                begin: row.get(0),
+                end: row.get(1),
+                title: row.get(2),
+                description: row.get(3),
+            })?
+            .filter_map(|item| item.ok());
+        Ok(it.collect::<Vec<_>>())
+    }
+
+    pub fn delete_before(&self, timestamp: i64) -> Result<()> {
+        println!("Removing programs before t={} from sqlite ...", timestamp);
+        let conn = Connection::open(&self.file)?;
+        let count = conn.execute(
+            "delete from programs where programs.end < ?1",
+            &[&timestamp],
+        )?;
+        println!("Deleted {} rows.", count);
+        Ok(())
+    }
 }
 
-pub fn insert_channel(conn: &Connection, channel: &ChannelInfo) -> Result<()> {
+fn insert_channel(conn: &Connection, channel: &ChannelInfo) -> Result<()> {
     conn.execute(
         "insert or replace into channels (id, name, icon_url) \
          values (?1, ?2, ?3)",
@@ -116,7 +181,7 @@ pub fn insert_channel(conn: &Connection, channel: &ChannelInfo) -> Result<()> {
     Ok(())
 }
 
-pub fn insert_program(conn: &Connection, channel: i64, program: &Program) -> Result<()> {
+fn insert_program(conn: &Connection, channel: i64, program: &Program) -> Result<()> {
     conn.execute(
         "insert into programs1 (channel, begin, end, title, description) \
          values (?1, ?2, ?3, ?4, ?5)",
@@ -131,7 +196,7 @@ pub fn insert_program(conn: &Connection, channel: i64, program: &Program) -> Res
     Ok(())
 }
 
-pub fn create_indexes(conn: &Connection) -> Result<()> {
+fn create_indexes(conn: &Connection) -> Result<()> {
     conn.execute("create index channel on programs (channel)", NO_PARAMS)?;
     conn.execute(
         "create index channel_begin on programs (channel, begin)",
@@ -145,19 +210,14 @@ pub fn create_indexes(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-pub fn drop_indexes(conn: &Connection) -> Result<()> {
+fn drop_indexes(conn: &Connection) -> Result<()> {
     conn.execute("drop index if exists channel", NO_PARAMS)?;
     conn.execute("drop index if exists channel_begin", NO_PARAMS)?;
     conn.execute("drop index if exists channel_end", NO_PARAMS)?;
     Ok(())
 }
 
-pub fn clear_programs_tmp(conn: &Connection) -> Result<()> {
-    conn.execute("delete from programs1", NO_PARAMS)?;
-    Ok(())
-}
-
-pub fn append_programs(conn: &mut Connection) -> Result<()> {
+fn append_programs(conn: &mut Connection) -> Result<()> {
     conn.execute("create index p1_channel on programs1 (channel)", NO_PARAMS)?;
 
     let channels = {
@@ -199,17 +259,8 @@ pub fn append_programs(conn: &mut Connection) -> Result<()> {
 
         tx.commit()?;
     }
-    clear_programs_tmp(&conn)?;
-    Ok(())
-}
 
-pub fn delete_before(conn: &Connection, timestamp: i64) -> Result<()> {
-    println!("Removing programs before t={} from sqlite ...", timestamp);
-    let count = conn.execute(
-        "delete from programs where programs.end < ?1",
-        &[&timestamp],
-    )?;
-    println!("Deleted {} rows.", count);
+    conn.execute("delete from programs1", NO_PARAMS)?;
     Ok(())
 }
 
@@ -227,11 +278,11 @@ mod tests {
         if Path::new("test.db").exists() {
             fs::remove_file("test.db").unwrap();
         }
-        let mut db = Connection::open("test.db").unwrap();
-        create_tables(&db).unwrap();
+        let mut db = ProgramsDatabase::open("test.db").unwrap();
+        let mut conn = Connection::open(&db.file).unwrap();
 
         insert_channel(
-            &db,
+            &conn,
             &ChannelInfo {
                 id: 1,
                 name: "ch1".to_string(),
@@ -240,7 +291,7 @@ mod tests {
         )
         .unwrap();
         insert_channel(
-            &db,
+            &conn,
             &ChannelInfo {
                 id: 2,
                 name: "ch2".to_string(),
@@ -249,7 +300,7 @@ mod tests {
         )
         .unwrap();
         insert_channel(
-            &db,
+            &conn,
             &ChannelInfo {
                 id: 3,
                 name: "ch3".to_string(),
@@ -258,7 +309,7 @@ mod tests {
         )
         .unwrap();
 
-        let channels = get_channels(&db).unwrap();
+        let channels = db.get_channels().unwrap();
         assert_eq!(
             channels.iter().map(|c| c.id).collect::<Vec<_>>(),
             vec![1, 2, 3]
@@ -284,7 +335,7 @@ mod tests {
                 description: String::new(),
             },
         ] {
-            insert_program(&db, 1, &program).unwrap();
+            insert_program(&conn, 1, &program).unwrap();
         }
         for program in vec![
             Program {
@@ -306,19 +357,19 @@ mod tests {
                 description: String::new(),
             },
         ] {
-            insert_program(&db, 2, &program).unwrap();
+            insert_program(&conn, 2, &program).unwrap();
         }
-        append_programs(&mut db).unwrap();
+        append_programs(&mut conn).unwrap();
 
         let t = 10;
-        let result = get_at(&db, t, 2).unwrap();
+        let result = db.get_at(t, 2).unwrap();
         {
             let mut ids = result.iter().map(|r| r.channel_id).collect::<Vec<_>>();
             ids.sort();
             assert_eq!(ids, vec![1, 2]);
         }
 
-        for r in get_at(&db, 10, 2).unwrap().iter() {
+        for r in db.get_at(10, 2).unwrap().iter() {
             println!("{:?}", r);
             assert!(r.programs.len() <= 2);
             let p1 = r.programs.first().unwrap();

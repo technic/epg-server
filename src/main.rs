@@ -43,10 +43,8 @@ mod store;
 mod xmltv;
 
 use epg::{Channel, EpgNow, Program};
-use rusqlite::Connection;
-use rusqlite::NO_PARAMS;
-use xmltv::XmltvItem;
 use xmltv::XmltvReader;
+use db::ProgramsDatabase;
 
 /// Use this function until #54361 becomes stable
 fn time_elapsed(t: &SystemTime) -> f64 {
@@ -200,59 +198,27 @@ impl iron::typemap::Key for EpgServer {
 
 struct EpgSqlServer {
     cache: RwLock<LiveCache>,
-    file: String,
+    db: ProgramsDatabase,
 }
 
 impl EpgSqlServer {
     fn new(file: &str) -> Self {
-        let conn = Connection::open(&file).expect("Failed to open database");
-        db::create_tables(&conn).expect("Failed to create tables");
         Self {
             cache: RwLock::new(LiveCache::new()),
-            file: file.to_string(),
+            db: ProgramsDatabase::open(&file).expect("Failed to open database"),
         }
     }
 
     fn update_data<R: Read>(&self, xmltv: XmltvReader<R>) {
         let t = SystemTime::now();
 
-        let mut conn = Connection::open(&self.file).unwrap();
-        conn.execute("drop index if exists p1_channel", NO_PARAMS)
-            .unwrap();
-        db::clear_programs_tmp(&conn).unwrap();
-
         // Clear old epg entries from the database
         let time = Utc::now().naive_utc() - chrono::Duration::days(20);
-        db::delete_before(&conn, time.timestamp()).unwrap();
+        self.db.delete_before(time.timestamp()).unwrap();
 
-        let mut ins_c = 0;
-        let mut ins_p = 0;
-        println!("Parsing XMLTV entries into database ...");
-        // Convert xmltv into sql table
-        {
-            let tx = conn.transaction().unwrap();
-            for item in xmltv {
-                match item {
-                    XmltvItem::Channel(channel) => {
-                        db::insert_channel(tx.deref(), &channel).unwrap();
-                        ins_c += 1;
-                    }
-                    XmltvItem::Program((id, program)) => {
-                        db::insert_program(tx.deref(), id, &program).unwrap();
-                        ins_p += 1;
-                    }
-                }
-            }
-            tx.commit().unwrap();
-        }
-
-        println!(
-            "Loaded {} channels and {} programs into sql database",
-            ins_c, ins_p
-        );
-
-        // Merge new programs data into database
-        db::append_programs(&mut conn).unwrap();
+        // Load new data
+        self.db.load_xmltv(xmltv).unwrap();
+        self.cache.write().unwrap().clear();
 
         println!("Database transactions took {}s", time_elapsed(&t));
     }
@@ -261,8 +227,7 @@ impl EpgSqlServer {
         println!("get_epg_day {} {}", id, date);
         let a = date.and_hms(0, 0, 0).timestamp();
         let b = date.and_hms(23, 59, 59).timestamp();
-        let conn = Connection::open(&self.file).unwrap();
-        Some(db::get_range(&conn, id, a, b).unwrap())
+        Some(self.db.get_range(id, a, b).unwrap())
     }
 
     fn get_epg_list(&self, time: chrono::DateTime<Utc>) -> String {
@@ -274,8 +239,7 @@ impl EpgSqlServer {
         } else {
             drop(cache);
             let mut cache = self.cache.write().unwrap();
-            let conn = Connection::open(&self.file).unwrap();
-            cache.set_data(db::get_at(&conn, t, 2).unwrap());
+            cache.set_data(self.db.get_at(t, 2).unwrap());
             cache.to_json()
         }
     }
