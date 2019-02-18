@@ -44,9 +44,9 @@ mod xmltv;
 
 use epg::{Channel, EpgNow, Program};
 use rusqlite::Connection;
+use rusqlite::NO_PARAMS;
 use xmltv::XmltvItem;
 use xmltv::XmltvReader;
-use rusqlite::NO_PARAMS;
 
 /// Use this function until #54361 becomes stable
 fn time_elapsed(t: &SystemTime) -> f64 {
@@ -217,7 +217,8 @@ impl EpgSqlServer {
         let t = SystemTime::now();
 
         let mut conn = Connection::open(&self.file).unwrap();
-        conn.execute("drop index if exists p1_channel", NO_PARAMS).unwrap();
+        conn.execute("drop index if exists p1_channel", NO_PARAMS)
+            .unwrap();
         db::clear_programs_tmp(&conn).unwrap();
 
         // Clear old epg entries from the database
