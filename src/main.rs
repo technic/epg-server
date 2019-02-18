@@ -370,24 +370,24 @@ fn main() {
         t
     }
 
-    let epg_wrapper = Arc::new(EpgSqlServer::new("epg.db"));
+    let app = Arc::new(EpgSqlServer::new("epg.db"));
 
     //    // Secondly, load epg contained in the persistent database
     //    epg_wrapper.set_data(store::load_db().unwrap());
 
     let _child = thread::spawn({
-        let epg_wrapper = epg_wrapper.clone();
+        let app = app.clone();
         move || {
             let mut last_changed = HttpDate::from(UNIX_EPOCH);
             loop {
-                let result = panic::catch_unwind(|| update_epg(last_changed, &epg_wrapper, &url));
+                let result = panic::catch_unwind(|| update_epg(last_changed, &app, &url));
                 match result {
                     Ok(t) => last_changed = t,
                     Err(_) => println!("Panic in update_epg!"),
                 }
                 thread::sleep(time::Duration::from_secs(3 * 60 * 60));
             }
-            let mut last_changed = update_epg(HttpDate::from(UNIX_EPOCH), &epg_wrapper, &url);
+            let mut last_changed = update_epg(HttpDate::from(UNIX_EPOCH), &app, &url);
         }
     });
 
@@ -399,7 +399,7 @@ fn main() {
     router.get("/epg_list", get_epg_list, "get_epg_list");
     let mut chain = Chain::new(router);
     // FIXME: superfluous nested Arc
-    chain.link_before(persistent::Read::<EpgSqlServer>::one(epg_wrapper));
+    chain.link_before(persistent::Read::<EpgSqlServer>::one(app));
 
     fn get_epg_day(req: &mut Request) -> IronResult<Response> {
         let data = req.get::<persistent::Read<EpgSqlServer>>().unwrap();
