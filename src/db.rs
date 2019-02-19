@@ -73,7 +73,7 @@ impl ProgramsDatabase {
                     }
                 }
             }
-            tx.commit().unwrap();
+            tx.commit()?;
         }
 
         println!(
@@ -88,9 +88,7 @@ impl ProgramsDatabase {
 
     pub fn get_channels(&self) -> Result<Vec<ChannelInfo>> {
         let conn = Connection::open(&self.file)?;
-        let mut stmt = conn
-            .prepare("select id, name, icon_url from channels")
-            .unwrap();
+        let mut stmt = conn.prepare("select id, name, icon_url from channels")?;
         let it = stmt
             .query_map(NO_PARAMS, |row| ChannelInfo {
                 id: row.get(0),
