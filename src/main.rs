@@ -336,9 +336,6 @@ fn main() {
 
     let app = Arc::new(EpgSqlServer::new("epg.db"));
 
-    //    // Secondly, load epg contained in the persistent database
-    //    epg_wrapper.set_data(store::load_db().unwrap());
-
     let _child = thread::spawn({
         let app = app.clone();
         move || {
@@ -355,7 +352,6 @@ fn main() {
     });
 
     use iron::mime::Mime;
-    //    let content_type = "application/json".parse::<Mime>().unwrap();
 
     let mut router = Router::new();
     router.get("/epg_day", get_epg_day, "get_epg_day");
@@ -422,10 +418,6 @@ fn main() {
             out,
         )))
     }
-
-    //    fn get_epg_live(req: &mut Request) -> IronResult<Response> {
-    //        let data = req.get::<persistent::State<EpgServer>>().unwrap();
-    //    }
 
     Iron::new(chain)
         .http(format!("localhost:{}", port))
