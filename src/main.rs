@@ -351,7 +351,6 @@ fn main() {
                 }
                 thread::sleep(time::Duration::from_secs(3 * 60 * 60));
             }
-            let mut last_changed = update_epg(HttpDate::from(UNIX_EPOCH), &app, &url);
         }
     });
 
