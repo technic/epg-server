@@ -4,7 +4,6 @@ extern crate clap;
 extern crate flate2;
 extern crate hyperx;
 extern crate iron;
-extern crate mongodb;
 extern crate persistent;
 extern crate reqwest;
 extern crate router;
@@ -42,7 +41,6 @@ use urlencoded::UrlEncodedQuery;
 
 mod db;
 mod epg;
-mod store;
 mod xmltv;
 
 use db::ProgramsDatabase;
@@ -141,12 +139,6 @@ impl EpgServer {
             }
         }
         self.set_data(data);
-        self.save();
-    }
-
-    fn save(&self) {
-        let channels = self.channels.read().unwrap();
-        store::save_to_db(&channels).unwrap();
     }
 
     fn get_epg_day(&self, id: i64, date: chrono::Date<Utc>) -> Option<Vec<Program>> {
