@@ -45,9 +45,9 @@ mod epg;
 mod store;
 mod xmltv;
 
+use db::ProgramsDatabase;
 use epg::{Channel, EpgNow, Program};
 use xmltv::XmltvReader;
-use db::ProgramsDatabase;
 
 /// Use this function until #54361 becomes stable
 fn time_elapsed(t: &SystemTime) -> f64 {
