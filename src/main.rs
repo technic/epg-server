@@ -2,6 +2,7 @@ extern crate bson;
 extern crate chrono;
 extern crate clap;
 extern crate flate2;
+extern crate hyperx;
 extern crate iron;
 extern crate mongodb;
 extern crate persistent;
@@ -20,16 +21,18 @@ extern crate rusqlite;
 
 use chrono::prelude::*;
 use flate2::read::GzDecoder;
+use hyperx::header::HttpDate;
 use iron::prelude::*;
 use iron::status;
 use iron::Error;
-use reqwest::header::{HttpDate, LastModified};
+use reqwest::header::LAST_MODIFIED;
 use router::Router;
 use std::collections::HashMap;
 use std::io::Read;
 use std::ops::Deref;
 use std::panic;
 use std::str;
+use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time;
@@ -320,7 +323,12 @@ fn main() {
         println!("check for new epg");
         let client = reqwest::Client::builder().gzip(false).build().unwrap();
         let result = client.get(url).send().unwrap();
-        let t = (result.headers().get::<LastModified>().unwrap().deref() as &HttpDate).clone();
+        let t = result
+            .headers()
+            .get(LAST_MODIFIED)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| HttpDate::from_str(s).ok())
+            .unwrap();
         println!("last modified {}", t);
         if t > last_t {
             let gz = GzDecoder::new(result);
