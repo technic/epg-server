@@ -90,10 +90,12 @@ impl ProgramsDatabase {
         let conn = Connection::open(&self.file)?;
         let mut stmt = conn.prepare("select id, name, icon_url from channels")?;
         let it = stmt
-            .query_map(NO_PARAMS, |row| ChannelInfo {
-                id: row.get(0),
-                name: row.get(1),
-                icon_url: row.get(2),
+            .query_map(NO_PARAMS, |row| {
+                Ok(ChannelInfo {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    icon_url: row.get(2)?,
+                })
             })?
             .filter_map(|item| item.ok());
         Ok(it.collect::<Vec<_>>())
@@ -114,14 +116,14 @@ impl ProgramsDatabase {
         let mut hash: HashMap<i64, EpgNow> = HashMap::new();
 
         let it = stmt.query_map(&[&timestamp, &count], |row| {
-            let id: i64 = row.get(0);
+            let id: i64 = row.get(0)?;
             let program = Program {
-                begin: row.get(1),
-                end: row.get(2),
-                title: row.get(3),
-                description: row.get(4),
+                begin: row.get(1)?,
+                end: row.get(2)?,
+                title: row.get(3)?,
+                description: row.get(4)?,
             };
-            (id, program)
+            Ok((id, program))
         })?;
 
         for (id, program) in it.filter_map(|item| item.ok()) {
@@ -144,11 +146,13 @@ impl ProgramsDatabase {
          programs.channel = ?1 and programs.begin >= ?2 and programs.begin < ?3",
         )?;
         let it = stmt
-            .query_map(&[&id, &from, &to], |row| Program {
-                begin: row.get(0),
-                end: row.get(1),
-                title: row.get(2),
-                description: row.get(3),
+            .query_map(&[&id, &from, &to], |row| {
+                Ok(Program {
+                    begin: row.get(0)?,
+                    end: row.get(1)?,
+                    title: row.get(2)?,
+                    description: row.get(3)?,
+                })
             })?
             .filter_map(|item| item.ok());
         Ok(it.collect::<Vec<_>>())
@@ -222,7 +226,7 @@ fn append_programs(conn: &mut Connection) -> Result<()> {
         let mut stmt = conn.prepare("select distinct p1.channel from programs1 p1")?;
         let it = stmt
             .query_map(NO_PARAMS, |row| {
-                let c: i64 = row.get(0);
+                let c: Result<i64> = row.get(0);
                 c
             })?
             .filter_map(|item| item.ok());
