@@ -9,7 +9,7 @@ extern crate reqwest;
 extern crate router;
 extern crate timer;
 extern crate urlencoded;
-extern crate xml;
+extern crate quick_xml;
 
 extern crate serde;
 extern crate serde_json;
@@ -17,6 +17,7 @@ extern crate serde_json;
 extern crate serde_derive;
 extern crate hyper;
 extern crate rusqlite;
+extern crate core;
 
 use chrono::prelude::*;
 use flate2::read::GzDecoder;
@@ -27,7 +28,7 @@ use iron::Error;
 use reqwest::header::LAST_MODIFIED;
 use router::Router;
 use std::collections::HashMap;
-use std::io::Read;
+use std::io::{BufRead, BufReader};
 use std::ops::Deref;
 use std::panic;
 use std::str;
@@ -204,7 +205,7 @@ impl EpgSqlServer {
         }
     }
 
-    fn update_data<R: Read>(&self, xmltv: XmltvReader<R>) {
+    fn update_data<R: BufRead>(&self, xmltv: XmltvReader<R>) {
         let t = SystemTime::now();
 
         // Clear old epg entries from the database
@@ -325,7 +326,7 @@ fn main() {
         if t > last_t {
             let gz = GzDecoder::new(result);
             println!("loading xmltv");
-            let reader = XmltvReader::new(gz);
+            let reader = XmltvReader::new(BufReader::new(gz));
             epg_wrapper.update_data(reader);
             println!("updated epg data");
         } else {

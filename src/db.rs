@@ -2,7 +2,7 @@ use epg::{ChannelInfo, EpgNow, Program};
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Result, NO_PARAMS};
 use std::collections::HashMap;
-use std::io::Read;
+use std::io::BufRead;
 use std::ops::Deref;
 use xmltv::XmltvItem;
 use xmltv::XmltvReader;
@@ -48,7 +48,7 @@ impl ProgramsDatabase {
         })
     }
 
-    pub fn load_xmltv<R: Read>(&self, xmltv: XmltvReader<R>) -> Result<()> {
+    pub fn load_xmltv<R: BufRead>(&self, xmltv: XmltvReader<R>) -> Result<()> {
         let mut conn = Connection::open(&self.file)?;
 
         // Make sure that temporary storage is clean

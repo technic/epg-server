@@ -1,13 +1,17 @@
 use chrono::prelude::*;
+use core::borrow::Borrow;
 use epg::ChannelInfo;
 use epg::{Channel, Program};
+use quick_xml::events::attributes::Attribute;
+use quick_xml::events::attributes::Attributes;
+use quick_xml::events::Event;
+use quick_xml::Reader;
+use std::borrow::Cow;
 use std::collections::HashMap;
-use std::io::Read;
+use std::io::BufRead;
+use std::ops::Deref;
 use std::str;
 use std::time::SystemTime;
-use xml::attribute::OwnedAttribute;
-use xml::reader::Events;
-use xml::reader::{EventReader, ParserConfig, XmlEvent};
 
 struct ProgramParser {
     channel_id: i64,
@@ -35,7 +39,7 @@ impl str::FromStr for ProgramField {
 }
 
 impl ProgramParser {
-    const TAG: &'static str = "programme";
+    const TAG: &'static [u8] = b"programme";
 
     pub fn new() -> Self {
         ProgramParser {
@@ -50,31 +54,38 @@ impl ProgramParser {
         }
     }
 
-    pub fn handle_event(&mut self, ev: &XmlEvent) -> Option<(i64, Program)> {
+    pub fn handle_event(&mut self, ev: &Event) -> Option<(i64, Program)> {
         let mut result = None;
         match ev {
-            XmlEvent::StartElement {
-                name, attributes, ..
-            } => {
-                if name.local_name == Self::TAG {
-                    self.parse_attributes(&attributes);
+            Event::Start(element) => {
+                if element.local_name() == Self::TAG {
+                    self.parse_attributes(element.attributes());
                 } else {
-                    self.field = name.local_name.parse().ok();
+                    self.field = str::from_utf8(element.local_name())
+                        .ok()
+                        .and_then(|s| s.parse().ok());
                 }
             }
-            XmlEvent::Characters(s) => match self.field {
+            Event::Text(s) => match self.field {
                 Some(ProgramField::Title) => {
-                    self.program.title = s.to_string();
+                    if let Some(s) = str::from_utf8(s).ok() {
+                        self.program.title = s.to_string();
+                    }
                 }
                 Some(ProgramField::Description) => {
-                    self.program.description = s.to_string();
+                    if let Some(s) = str::from_utf8(s).ok() {
+                        self.program.description = s.to_string();
+                    }
                 }
                 _ => {}
             },
-            XmlEvent::EndElement { name } => {
-                if name.local_name == Self::TAG {
-                    result = Some((self.channel_id, self.program.clone()));
-                    self.reset();
+            Event::End(element) => {
+                if element.local_name() == Self::TAG {
+                    let mut tmp = Self::new();
+                    std::mem::swap(&mut tmp, self);
+                    result = Some((tmp.channel_id, tmp.program))
+                    //                    result = Some((self.channel_id, self.program.clone()));
+                    //                    self.reset();
                 }
             }
             _ => {
@@ -84,14 +95,26 @@ impl ProgramParser {
         result
     }
 
-    fn parse_attributes(&mut self, attributes: &[OwnedAttribute]) {
-        for a in attributes {
-            match a.name.local_name.as_ref() {
-                "start" => self.program.begin = to_timestamp(&a.value),
-                "stop" => self.program.end = to_timestamp(&a.value),
-                "channel" => self.channel_id = a.value.parse().unwrap_or(0),
+    fn parse_attributes(&mut self, attributes: Attributes) {
+        for a in attributes.filter_map(|a| a.ok()) {
+            match a.key {
+                b"start" => {
+                    self.program.begin = to_timestamp(str::from_utf8(a.value.deref()).unwrap_or(""))
+                }
+                b"stop" => {
+                    self.program.end = to_timestamp(str::from_utf8(a.value.deref()).unwrap_or(""))
+                }
+                b"channel" => {
+                    self.channel_id = str::from_utf8(a.value.deref())
+                        .ok()
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(0)
+                }
                 _ => {
-                    panic!("unknown attribute {}", a.name.local_name);
+                    panic!(
+                        "unknown attribute {}",
+                        str::from_utf8(a.key).unwrap_or("???")
+                    );
                 }
             }
         }
@@ -125,7 +148,7 @@ struct ChannelParser {
 }
 
 impl ChannelParser {
-    const TAG: &'static str = "channel";
+    const TAG: &'static [u8] = b"channel";
 
     pub fn new() -> Self {
         ChannelParser {
@@ -138,30 +161,31 @@ impl ChannelParser {
         }
     }
 
-    pub fn handle_event(&mut self, ev: &XmlEvent) -> Option<ChannelInfo> {
+    pub fn handle_event(&mut self, ev: &Event) -> Option<ChannelInfo> {
         let mut result = None;
         match ev {
-            XmlEvent::StartElement {
-                name, attributes, ..
-            } => {
-                if name.local_name == Self::TAG {
-                    self.parse_attributes(&attributes);
+            Event::Start(element) => {
+                if element.local_name() == Self::TAG {
+                    self.parse_attributes(element.attributes());
                 } else {
-                    self.field = name.local_name.parse().ok();
+                    self.field = str::from_utf8(element.local_name())
+                        .ok()
+                        .and_then(|s| s.parse().ok());
                     if self.field == Some(ChannelField::IconUrl) {
-                        self.channel.icon_url =
-                            get_attribute("src", &attributes).unwrap_or("").to_string();
+                        if let Some(s) = get_attribute("src", element.attributes()) {
+                            self.channel.icon_url = s;
+                        }
                     }
                 }
             }
-            XmlEvent::Characters(s) => match self.field {
+            Event::Text(s) => match self.field {
                 Some(ChannelField::Name) => {
-                    self.channel.name = s.to_string();
+                    self.channel.name = str::from_utf8(s).unwrap_or("").to_string();
                 }
                 _ => {}
             },
-            XmlEvent::EndElement { name } => {
-                if name.local_name == Self::TAG {
+            Event::End(element) => {
+                if element.local_name() == Self::TAG {
                     result = Some(self.channel.clone());
                     self.reset();
                 }
@@ -173,17 +197,26 @@ impl ChannelParser {
         result
     }
 
-    fn parse_attributes(&mut self, attributes: &[OwnedAttribute]) {
-        for a in attributes {
-            match a.name.local_name.as_ref() {
-                "id" => {
-                    self.channel.id = a.value.parse().unwrap_or(0);
+    fn parse_attributes(&mut self, attributes: Attributes) {
+        for a in attributes.filter_map(|a| a.ok()) {
+            match a.key {
+                b"id" => {
+                    self.channel.id = str::from_utf8(a.value.deref())
+                        .ok()
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(0);
                     if self.channel.id == 0 {
-                        println!("bad id {}", a.value);
+                        println!(
+                            "bad id {}",
+                            str::from_utf8(a.value.deref()).unwrap_or("???")
+                        );
                     }
                 }
                 _ => {
-                    panic!("Unknown attribute {}", a.name);
+                    panic!(
+                        "Unknown attribute {}",
+                        str::from_utf8(a.key).unwrap_or("???")
+                    );
                 }
             }
         }
@@ -199,11 +232,11 @@ fn to_timestamp(s: &str) -> i64 {
     dt.unwrap().timestamp()
 }
 
-fn get_attribute<'a>(name: &str, attributes: &'a [OwnedAttribute]) -> Option<&'a str> {
+fn get_attribute(name: &str, attributes: Attributes) -> Option<String> {
     let mut result = None;
-    for a in attributes {
-        if a.name.local_name == name {
-            result = Some(a.value.as_ref());
+    for a in attributes.filter_map(|a| a.ok()) {
+        if a.key == name.as_bytes() {
+            result = str::from_utf8(a.value.deref()).map(|s| s.to_string()).ok();
         }
     }
     result
@@ -216,19 +249,22 @@ enum Level {
     Program,
 }
 
-pub struct XmltvReader<R: Read> {
+pub struct XmltvReader<R: BufRead> {
     level: Level,
-    parser: Events<R>,
+    parser: Reader<R>,
+    buf: Vec<u8>,
     channel_parser: ChannelParser,
     program_parser: ProgramParser,
 }
 
-impl<R: Read> XmltvReader<R> {
+impl<R: BufRead> XmltvReader<R> {
     pub fn new(source: R) -> Self {
+        let mut reader = Reader::from_reader(source);
+        reader.trim_text(true);
         Self {
             level: Level::Top,
-            parser: EventReader::new_with_config(source, ParserConfig::new().trim_whitespace(true))
-                .into_iter(),
+            parser: reader,
+            buf: Vec::new(),
             channel_parser: ChannelParser::new(),
             program_parser: ProgramParser::new(),
         }
@@ -241,19 +277,23 @@ pub enum XmltvItem {
     Program((i64, Program)),
 }
 
-impl<R: Read> Iterator for XmltvReader<R> {
+impl<R: BufRead> Iterator for XmltvReader<R> {
     type Item = XmltvItem;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let ev = match self.parser.next() {
-                Some(ev) => ev.unwrap(),
-                None => return None,
+            let ev = match self.parser.read_event(&mut self.buf) {
+                Ok(Event::Eof) => return None,
+                Ok(ev) => ev,
+                Err(e) => {
+                    println!("Xml parser error: {}", e);
+                    return None;
+                }
             };
             match self.level {
                 Level::Top => match ev {
-                    XmlEvent::StartElement { ref name, .. } => match name.local_name.as_ref() {
+                    Event::Start(ref element) => match element.local_name() {
                         ProgramParser::TAG => {
                             self.level = Level::Program;
                             self.program_parser.handle_event(&ev);
@@ -263,7 +303,7 @@ impl<R: Read> Iterator for XmltvReader<R> {
                             self.channel_parser.handle_event(&ev);
                         }
                         _ => {
-                            eprintln!("unknown tag {}", name.local_name);
+                            eprintln!("unknown tag {:?}", element.local_name());
                         }
                     },
                     _ => {}
@@ -277,9 +317,9 @@ impl<R: Read> Iterator for XmltvReader<R> {
                 }
                 Level::Program => {
                     let result = self.program_parser.handle_event(&ev);
-                    if let Some((id, program)) = result {
+                    if let Some(pair) = result {
                         self.level = Level::Top;
-                        return Some(XmltvItem::Program((id, program)));
+                        return Some(XmltvItem::Program(pair));
                     }
                 }
             }
@@ -287,7 +327,7 @@ impl<R: Read> Iterator for XmltvReader<R> {
     }
 }
 
-pub fn read_xmltv<R: Read>(source: R) -> HashMap<i64, Channel> {
+pub fn read_xmltv<R: BufRead>(source: R) -> HashMap<i64, Channel> {
     let t = SystemTime::now();
 
     let mut channels: HashMap<i64, Channel> = HashMap::new();
