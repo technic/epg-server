@@ -5,19 +5,19 @@ extern crate flate2;
 extern crate hyperx;
 extern crate iron;
 extern crate persistent;
+extern crate quick_xml;
 extern crate reqwest;
 extern crate router;
 extern crate timer;
 extern crate urlencoded;
-extern crate quick_xml;
 
 extern crate serde;
 extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
+extern crate core;
 extern crate hyper;
 extern crate rusqlite;
-extern crate core;
 
 use chrono::prelude::*;
 use flate2::read::GzDecoder;
