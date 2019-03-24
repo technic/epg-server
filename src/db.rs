@@ -64,11 +64,28 @@ impl ProgramsDatabase {
             for item in xmltv {
                 match item {
                     XmltvItem::Channel(channel) => {
-                        insert_channel(tx.deref(), &channel)?;
+                        let mut stmt = tx.prepare_cached(
+                            "insert or replace into channels (id, name, icon_url) values (?1, ?2, ?3)",
+                        )?;
+                        stmt.execute(&[
+                            &channel.id,
+                            &channel.name as &ToSql,
+                            &channel.icon_url as &ToSql,
+                        ])?;
                         ins_c += 1;
                     }
                     XmltvItem::Program((id, program)) => {
-                        insert_program(tx.deref(), id, &program)?;
+                        let mut stmt = tx.prepare_cached(
+                            "insert into programs1 (channel, begin, end, title, description) \
+                             values (?1, ?2, ?3, ?4, ?5)",
+                        )?;
+                        stmt.execute(&[
+                            &id,
+                            &program.begin,
+                            &program.end,
+                            &program.title as &ToSql,
+                            &program.description as &ToSql,
+                        ])?;
                         ins_p += 1;
                     }
                 }
