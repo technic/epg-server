@@ -7,3 +7,4 @@ Cargo.lock
 admin/
 test.db
 epg.db
+epg.db.*
