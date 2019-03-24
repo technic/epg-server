@@ -8,15 +8,11 @@ pipelines:
           - cargo
           - rust-target
         script:
-          - apt-get update && apt-get install -y mongodb-clients
-          - mongo epg ./setup/create-user.js
           - echo $CARGO_HOME
           - rustup component add rustfmt-preview
           - cargo fmt -- --check
           - cargo build
           - cargo test
-        services:
-          - mongo
     - step:
         name: Build and deploy
         deployment: test
@@ -36,6 +32,3 @@ definitions:
     cargo: /usr/local/cargo # CARGO_HOME
     rust-target: $BITBUCKET_CLONE_DIR/target
 
-  services:
-    mongo:
-      image: mongo:4-xenial
