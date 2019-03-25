@@ -54,7 +54,11 @@ impl ProgramParser {
         }
     }
 
-    pub fn handle_event(&mut self, ev: &Event) -> Option<(i64, Program)> {
+    pub fn handle_event<R: BufRead>(
+        &mut self,
+        ev: &Event,
+        reader: &Reader<R>,
+    ) -> Option<(i64, Program)> {
         let mut result = None;
         match ev {
             Event::Start(element) => {
@@ -68,12 +72,12 @@ impl ProgramParser {
             }
             Event::Text(s) => match self.field {
                 Some(ProgramField::Title) => {
-                    if let Some(s) = str::from_utf8(s).ok() {
+                    if let Some(s) = s.unescape_and_decode(reader).ok() {
                         self.program.title = s.to_string();
                     }
                 }
                 Some(ProgramField::Description) => {
-                    if let Some(s) = str::from_utf8(s).ok() {
+                    if let Some(s) = s.unescape_and_decode(reader).ok() {
                         self.program.description = s.to_string();
                     }
                 }
@@ -161,7 +165,11 @@ impl ChannelParser {
         }
     }
 
-    pub fn handle_event(&mut self, ev: &Event) -> Option<ChannelInfo> {
+    pub fn handle_event<R: BufRead>(
+        &mut self,
+        ev: &Event,
+        reader: &Reader<R>,
+    ) -> Option<ChannelInfo> {
         let mut result = None;
         match ev {
             Event::Start(element) => {
@@ -296,11 +304,11 @@ impl<R: BufRead> Iterator for XmltvReader<R> {
                     Event::Start(ref element) => match element.local_name() {
                         ProgramParser::TAG => {
                             self.level = Level::Program;
-                            self.program_parser.handle_event(&ev);
+                            self.program_parser.handle_event(&ev, &self.parser);
                         }
                         ChannelParser::TAG => {
                             self.level = Level::Channel;
-                            self.channel_parser.handle_event(&ev);
+                            self.channel_parser.handle_event(&ev, &self.parser);
                         }
                         _ => {
                             eprintln!("unknown tag {:?}", element.local_name());
@@ -309,14 +317,14 @@ impl<R: BufRead> Iterator for XmltvReader<R> {
                     _ => {}
                 },
                 Level::Channel => {
-                    let result = self.channel_parser.handle_event(&ev);
+                    let result = self.channel_parser.handle_event(&ev, &self.parser);
                     if let Some(channel) = result {
                         self.level = Level::Top;
                         return Some(XmltvItem::Channel(channel));
                     }
                 }
                 Level::Program => {
-                    let result = self.program_parser.handle_event(&ev);
+                    let result = self.program_parser.handle_event(&ev, &self.parser);
                     if let Some(pair) = result {
                         self.level = Level::Top;
                         return Some(XmltvItem::Program(pair));
