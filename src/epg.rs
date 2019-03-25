@@ -9,6 +9,17 @@ pub struct Program {
     pub description: String,
 }
 
+impl Program {
+    pub fn new() -> Self {
+        Self {
+            begin: 0,
+            end: 0,
+            title: String::new(),
+            description: String::new(),
+        }
+    }
+}
+
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -32,6 +43,16 @@ pub struct ChannelInfo {
     pub id: i64,
     pub name: String,
     pub icon_url: String,
+}
+
+impl ChannelInfo {
+    pub fn new() -> Self {
+        Self {
+            id: 0,
+            name: String::new(),
+            icon_url: String::new(),
+        }
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

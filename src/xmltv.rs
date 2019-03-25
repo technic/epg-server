@@ -44,12 +44,7 @@ impl ProgramParser {
     pub fn new() -> Self {
         ProgramParser {
             channel_id: 0,
-            program: Program {
-                begin: 0,
-                end: 0,
-                title: String::new(),
-                description: String::new(),
-            },
+            program: Program::new(),
             field: None,
         }
     }
@@ -85,11 +80,8 @@ impl ProgramParser {
             },
             Event::End(element) => {
                 if element.local_name() == Self::TAG {
-                    let mut tmp = Self::new();
-                    std::mem::swap(&mut tmp, self);
-                    result = Some((tmp.channel_id, tmp.program))
-                    //                    result = Some((self.channel_id, self.program.clone()));
-                    //                    self.reset();
+                    result = Some((self.channel_id, self.program.clone()));
+                    self.reset();
                 }
             }
             _ => {
@@ -125,7 +117,9 @@ impl ProgramParser {
     }
 
     fn reset(&mut self) {
-        *self = Self::new();
+        self.channel_id = 0;
+        self.program = Program::new();
+        self.field = None;
     }
 }
 
@@ -156,11 +150,7 @@ impl ChannelParser {
 
     pub fn new() -> Self {
         ChannelParser {
-            channel: ChannelInfo {
-                id: 0,
-                name: String::new(),
-                icon_url: String::new(),
-            },
+            channel: ChannelInfo::new(),
             field: None,
         }
     }
@@ -231,7 +221,8 @@ impl ChannelParser {
     }
 
     fn reset(&mut self) {
-        *self = Self::new();
+        self.channel = ChannelInfo::new();
+        self.field = None;
     }
 }
 
