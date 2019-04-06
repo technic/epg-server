@@ -240,8 +240,13 @@ impl EpgSqlServer {
         }
     }
 
-    fn get_channels(&self) -> Vec<(i64, ChannelInfo)> {
-        self.db.get_channels().unwrap()
+    fn get_channels(&self) -> HashMap<String, i64> {
+        self.db
+            .get_channels()
+            .unwrap()
+            .into_iter()
+            .map(|(id, channel)| (channel.alias, id))
+            .collect::<HashMap<_, _>>()
     }
 }
 
@@ -428,7 +433,7 @@ fn main() {
         let data = req.get::<persistent::Read<EpgSqlServer>>().unwrap();
         #[derive(Serialize)]
         struct Data {
-            data: Vec<(i64, ChannelInfo)>,
+            data: HashMap<String, i64>,
         }
         let out = serde_json::to_string(&Data {
             data: data.get_channels(),
