@@ -14,7 +14,7 @@ use std::str;
 use std::time::SystemTime;
 
 struct ProgramParser {
-    channel_id: i64,
+    channel_alias: String,
     program: Program,
     field: Option<ProgramField>,
 }
@@ -43,7 +43,7 @@ impl ProgramParser {
 
     pub fn new() -> Self {
         ProgramParser {
-            channel_id: 0,
+            channel_alias: String::new(),
             program: Program::new(),
             field: None,
         }
@@ -53,7 +53,7 @@ impl ProgramParser {
         &mut self,
         ev: &Event,
         reader: &Reader<R>,
-    ) -> Option<(i64, Program)> {
+    ) -> Option<(String, Program)> {
         let mut result = None;
         match ev {
             Event::Start(element) => {
@@ -80,7 +80,7 @@ impl ProgramParser {
             },
             Event::End(element) => {
                 if element.local_name() == Self::TAG {
-                    result = Some((self.channel_id, self.program.clone()));
+                    result = Some((self.channel_alias.clone(), self.program.clone()));
                     self.reset();
                 }
             }
@@ -101,10 +101,7 @@ impl ProgramParser {
                     self.program.end = to_timestamp(str::from_utf8(a.value.deref()).unwrap_or(""))
                 }
                 b"channel" => {
-                    self.channel_id = str::from_utf8(a.value.deref())
-                        .ok()
-                        .and_then(|s| s.parse().ok())
-                        .unwrap_or(0)
+                    self.channel_alias = str::from_utf8(a.value.deref()).unwrap_or("").to_string();
                 }
                 _ => {
                     panic!(
@@ -117,7 +114,7 @@ impl ProgramParser {
     }
 
     fn reset(&mut self) {
-        self.channel_id = 0;
+        self.channel_alias = String::new();
         self.program = Program::new();
         self.field = None;
     }
@@ -199,13 +196,10 @@ impl ChannelParser {
         for a in attributes.filter_map(|a| a.ok()) {
             match a.key {
                 b"id" => {
-                    self.channel.id = str::from_utf8(a.value.deref())
-                        .ok()
-                        .and_then(|s| s.parse().ok())
-                        .unwrap_or(0);
-                    if self.channel.id == 0 {
+                    self.channel.alias = str::from_utf8(a.value.deref()).unwrap_or("").to_string();
+                    if self.channel.alias.is_empty() {
                         println!(
-                            "bad id {}",
+                            "bad alias {}",
                             str::from_utf8(a.value.deref()).unwrap_or("???")
                         );
                     }
@@ -273,7 +267,7 @@ impl<R: BufRead> XmltvReader<R> {
 #[derive(Debug)]
 pub enum XmltvItem {
     Channel(ChannelInfo),
-    Program((i64, Program)),
+    Program((String, Program)),
 }
 
 impl<R: BufRead> Iterator for XmltvReader<R> {
@@ -326,6 +320,7 @@ impl<R: BufRead> Iterator for XmltvReader<R> {
     }
 }
 
+/*
 pub fn read_xmltv<R: BufRead>(source: R) -> HashMap<i64, Channel> {
     let t = SystemTime::now();
 
@@ -366,3 +361,4 @@ pub fn read_xmltv<R: BufRead>(source: R) -> HashMap<i64, Channel> {
 
     channels
 }
+*/

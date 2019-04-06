@@ -21,7 +21,9 @@ timer = "0.2"
 clap = "2"
 bson = "0.13"
 mongodb = "0.3"
-rusqlite = "0.17"
+rusqlite = { version = "0.17", features = ["functions"] }
+migrant_lib = { version = "0.24", features = ["d-sqlite"] }
+error-chain = "*"
 
 [profile.dev]
 opt-level = 1
