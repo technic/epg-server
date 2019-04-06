@@ -31,3 +31,4 @@ if __name__ == "__main__":
             print(ex)
     _check_epg('http://iptvdream.zapto.org/epg')
     _check_epg('http://iptvdream.zapto.org/epg-soveni')
+    _check_epg('http://iptvdream.zapto.org/epg-king')
