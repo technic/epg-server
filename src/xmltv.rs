@@ -84,8 +84,23 @@ impl ProgramParser {
                     self.reset();
                 }
             }
+            // Both Start and End
+            // FIXME: copy-paste
+            Event::Empty(element) => {
+                if element.local_name() == Self::TAG {
+                    self.parse_attributes(element.attributes());
+                } else {
+                    self.field = str::from_utf8(element.local_name())
+                        .ok()
+                        .and_then(|s| s.parse().ok());
+                }
+                if element.local_name() == Self::TAG {
+                    result = Some((self.channel_alias.clone(), self.program.clone()));
+                    self.reset();
+                }
+            }
             _ => {
-                panic!("unhandled event");
+                panic!("unhandled event {:?}", ev);
             }
         }
         result
