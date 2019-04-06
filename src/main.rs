@@ -318,7 +318,7 @@ fn main() {
 
     fn update_epg(last_t: HttpDate, epg_wrapper: &Arc<EpgSqlServer>, url: &str) -> HttpDate {
         println!("check for new epg");
-        let client = reqwest::Client::builder().gzip(false).build().unwrap();
+        let client = reqwest::Client::builder().build().unwrap();
         let result = client.get(url).send().unwrap();
         let t = result
             .headers()
@@ -328,9 +328,8 @@ fn main() {
             .unwrap();
         println!("last modified {}", t);
         if t > last_t {
-            let gz = GzDecoder::new(result);
             println!("loading xmltv");
-            let reader = XmltvReader::new(BufReader::new(gz));
+            let reader = XmltvReader::new(BufReader::new(result));
             epg_wrapper.update_data(reader);
             println!("updated epg data");
         } else {
