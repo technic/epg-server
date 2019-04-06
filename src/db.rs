@@ -161,7 +161,6 @@ impl ProgramsDatabase {
                                         &channel.name,
                                         &channel.icon_url,
                                     )?;
-                                    eprintln!("Insert channel with id {}", id);
                                     entry.insert(id);
                                 } else {
                                     // Insert new channel and assign it new id
@@ -171,7 +170,6 @@ impl ProgramsDatabase {
                                         &channel.name,
                                         &channel.icon_url,
                                     )?;
-                                    eprintln!("Insert channel {} with id {}", entry.key(), id);
                                     entry.insert(id);
                                 }
                             }
@@ -322,7 +320,6 @@ fn update_channel(
     )?;
     let row_id = stmt.insert(&[&id, &alias as &ToSql, &name as &ToSql, &icon_url as &ToSql])?;
     assert_eq!(row_id, id);
-    eprintln!("Addded {} {}", id, alias);
     Ok(())
 }
 
