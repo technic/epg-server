@@ -161,6 +161,8 @@ impl ProgramsDatabase {
                                         &channel.name,
                                         &channel.icon_url,
                                     )?;
+                                    eprintln!("Insert channel with id {}", id);
+                                    entry.insert(id);
                                 } else {
                                     // Insert new channel and assign it new id
                                     let id = insert_channel(
