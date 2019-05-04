@@ -16,6 +16,8 @@ def check_epg(url):
             tb, te = p['begin'], p['end']
             # print([str(datetime.fromtimestamp(x)) for x in (tb, ts, te)])
             return tb < ts <= te
+        else:
+            return None
 
     epg_list = list(map(f, data['data']))
     coverage = float(epg_list.count(True)) / len(epg_list) * 100
