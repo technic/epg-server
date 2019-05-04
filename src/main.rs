@@ -85,7 +85,7 @@ impl LiveCache {
         self.end = self
             .data
             .iter()
-            .filter_map(|e| e.programs.last().and_then(|p| Some(p.end)))
+            .filter_map(|e| e.programs.first().and_then(|p| Some(p.end)))
             .min()
             .unwrap_or(0);
     }
