@@ -8,3 +8,6 @@ admin/
 test.db
 epg.db
 epg.db.*
+# tools
+/sqlite3.exe
+/sqlite3.dll
