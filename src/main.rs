@@ -248,6 +248,15 @@ impl EpgSqlServer {
             .map(|(id, channel)| (channel.alias, id))
             .collect::<HashMap<_, _>>()
     }
+
+    fn get_channels_name(&self) -> HashMap<String, i64> {
+        self.db
+            .get_channels()
+            .unwrap()
+            .into_iter()
+            .map(|(id, channel)| (channel.name, id))
+            .collect::<HashMap<_, _>>()
+    }
 }
 
 impl iron::typemap::Key for EpgSqlServer {
@@ -366,6 +375,7 @@ fn main() {
     router.get("/epg_day", get_epg_day, "get_epg_day");
     router.get("/epg_list", get_epg_list, "get_epg_list");
     router.get("/channels", get_channel_ids, "get_channel_ids");
+    router.get("/channels_names", get_channel_names, "get_channel_names");
     let mut chain = Chain::new(router);
     // FIXME: superfluous nested Arc
     chain.link_before(persistent::Read::<EpgSqlServer>::one(app));
@@ -437,6 +447,23 @@ fn main() {
         }
         let out = serde_json::to_string(&Data {
             data: data.get_channels(),
+        })
+        .unwrap();
+        Ok(Response::with((
+            status::Ok,
+            "application/json".parse::<Mime>().unwrap(),
+            out,
+        )))
+    }
+
+    fn get_channel_names(req: &mut Request) -> IronResult<Response> {
+        let data = req.get::<persistent::Read<EpgSqlServer>>().unwrap();
+        #[derive(Serialize)]
+        struct Data {
+            data: HashMap<String, i64>,
+        }
+        let out = serde_json::to_string(&Data {
+            data: data.get_channels_name(),
         })
         .unwrap();
         Ok(Response::with((
