@@ -2,6 +2,7 @@ image: rust:1.32-stretch
 
 pipelines:
   custom:
+    build:
     - step:
         name: Build and test
         caches:
