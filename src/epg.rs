@@ -141,8 +141,8 @@ impl Channel {
 
 #[cfg(test)]
 mod tests {
-    use epg::Channel;
-    use epg::Program;
+    use crate::epg::Channel;
+    use crate::epg::Program;
 
     fn sample_channel() -> Channel {
         Channel {
