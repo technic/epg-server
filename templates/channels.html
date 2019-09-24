@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block head %}
+<title>Channels</title>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="card filterable mx-auto">
+    <div class="card-header">
+      <h3 class="card-title float-left">Channels</h3>
+      <div class="float-right">
+        <button class="btn btn-secondary btn-sm btn-filter">
+          <i class="fas fa-filter"></i> Filter
+        </button>
+      </div>
+    </div>
+    <table class="table">
+      <thead>
+        <tr class="filters">
+          <th></th>
+          <th><input type="text" class="form-control" placeholder="name" disabled></th>
+          <th><input type="text" class="form-control" placeholder="tvg-id" disabled></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in channels %}
+        <tr>
+          <td><img src="{{ c.icon_url }}" /></td>
+          <td>{{ c.name }}</td>
+          <td>{{ c.alias }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

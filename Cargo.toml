@@ -7,6 +7,8 @@ edition = '2018'
 [dependencies]
 iron = "*"
 router = "*"
+mount = "0.4"
+staticfile = "0.5"
 persistent = "*"
 urlencoded = "*"
 reqwest = "0.9"
@@ -24,6 +26,7 @@ bson = "0.13"
 rusqlite = { version = "0.17", features = ["functions"] }
 migrant_lib = { version = "0.24", features = ["d-sqlite"] }
 error-chain = "*"
+askama = { version = "0.8", features = ["with-iron"] }
 
 [profile.dev]
 opt-level = 1

@@ -1,3 +1,4 @@
+extern crate askama;
 extern crate bson;
 extern crate chrono;
 extern crate clap;
@@ -19,14 +20,17 @@ extern crate core;
 extern crate hyper;
 extern crate rusqlite;
 
+use askama::Template;
 use chrono::prelude::*;
 use flate2::read::GzDecoder;
 use hyperx::header::HttpDate;
 use iron::prelude::*;
 use iron::status;
 use iron::Error;
+use mount::Mount;
 use reqwest::header::LAST_MODIFIED;
 use router::Router;
+use staticfile::Static;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::ops::Deref;
@@ -240,7 +244,16 @@ impl EpgSqlServer {
         }
     }
 
-    fn get_channels(&self) -> HashMap<String, i64> {
+    fn get_channels(&self) -> Vec<ChannelInfo> {
+        self.db
+            .get_channels()
+            .unwrap()
+            .into_iter()
+            .map(|(id, channel)| channel)
+            .collect::<Vec<_>>()
+    }
+
+    fn get_channels_alias(&self) -> HashMap<String, i64> {
         self.db
             .get_channels()
             .unwrap()
@@ -370,13 +383,21 @@ fn main() {
     });
 
     use iron::mime::Mime;
+    use std::path::Path;
 
     let mut router = Router::new();
     router.get("/epg_day", get_epg_day, "get_epg_day");
     router.get("/epg_list", get_epg_list, "get_epg_list");
     router.get("/channels", get_channel_ids, "get_channel_ids");
+    router.get("/channels.html", get_channels_html, "get_channels_html");
     router.get("/channels_names", get_channel_names, "get_channel_names");
-    let mut chain = Chain::new(router);
+
+    let mut mount = Mount::new();
+    mount.mount("/", router);
+    mount.mount("static/", Static::new(Path::new("static/")));
+    let mut chain = Chain::new(mount);
+
+    // chain.link_after(mount);
     // FIXME: superfluous nested Arc
     chain.link_before(persistent::Read::<EpgSqlServer>::one(app));
 
@@ -446,7 +467,7 @@ fn main() {
             data: HashMap<String, i64>,
         }
         let out = serde_json::to_string(&Data {
-            data: data.get_channels(),
+            data: data.get_channels_alias(),
         })
         .unwrap();
         Ok(Response::with((
@@ -470,6 +491,22 @@ fn main() {
             status::Ok,
             "application/json".parse::<Mime>().unwrap(),
             out,
+        )))
+    }
+
+    fn get_channels_html(req: &mut Request) -> IronResult<Response> {
+        let data = req.get::<persistent::Read<EpgSqlServer>>().unwrap();
+
+        #[derive(Template)]
+        #[template(path = "channels.html")]
+        struct ChannelsTemplate<'a> {
+            channels: &'a [ChannelInfo],
+        }
+        Ok(Response::with((
+            status::Ok,
+            ChannelsTemplate {
+                channels: &data.get_channels(),
+            },
         )))
     }
 

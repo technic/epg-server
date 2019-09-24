@@ -13,3 +13,8 @@ epg.db.*
 /sqlite3.dll
 # python
 /.venv
+# web
+/node_modules
+static/*.min.js
+static/*.min.css
+static/fonts
