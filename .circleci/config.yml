@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: rust:1.37-stretch
+      - image: circleci/rust:1.37-stretch-node
     steps:
       - checkout
       - restore_cache:
@@ -16,6 +16,9 @@ jobs:
             cargo build
             cargo test
       - run:
+          name: Webpack
+          command: npm run-script build
+      - run:
           name: Release build
           command: >
             OPENSSL_STATIC=1 OPENSSL_LIB_DIR=/usr/lib/x86_64-linux-gnu OPENSSL_INCLUDE_DIR=/usr/include/openssl
@@ -24,6 +27,8 @@ jobs:
           root: .
           paths:
             - target/release
+            - static
+            - templates
       - save_cache:
           key: rust-cache
           paths:
