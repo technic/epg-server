@@ -11,3 +11,5 @@ epg.db.*
 # tools
 /sqlite3.exe
 /sqlite3.dll
+/node_modules
+/.venv
