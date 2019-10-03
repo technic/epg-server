@@ -52,6 +52,7 @@ jobs:
             git push --mirror github
 
 workflows:
+  version: 2
   main:
     jobs:
       - build
