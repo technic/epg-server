@@ -33,6 +33,8 @@ jobs:
     docker:
       - image: rust:1.37-stretch
     steps:
+      - attach_workspace:
+          at: .
       - add_ssh_keys:
           fingerprints:
             - "45:16:fd:9e:94:b8:84:59:ae:5b:50:6e:e7:e2:e5:09"
