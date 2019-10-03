@@ -37,3 +37,19 @@ jobs:
             scp ./target/release/epg-server $USERNAME@$HOST:~/epg-server.tmp
             ssh $USERNAME@$HOST mv epg-server.tmp epg-server
             ssh $USERNAME@$HOST sudo /bin/systemctl restart epg-server-soveni epg-server-king
+  mirror:
+    docker:
+      - image: circleci/python
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "19:db:1c:7a:53:a2:a6:7f:c4:3b:9b:57:de:5a:ee:d6"
+      - run:
+          name: GitHub mirror
+          command:
+            git remote add github git@github.com:technic/epg-server.git
+            git push --mirror github
+    branches:
+      only:
+        - master
