@@ -44,7 +44,7 @@ jobs:
           command: |
             scp ./target/release/epg-server $USERNAME@$HOST:~/epg-server.tmp
             ssh $USERNAME@$HOST mv epg-server.tmp epg-server
-            ssh $USERNAME@$HOST sudo /bin/systemctl restart epg-server-soveni epg-server-king    
+            ssh $USERNAME@$HOST sudo /bin/systemctl restart epg-server-soveni epg-server-king
   mirror:
     docker:
       - image: circleci/python
@@ -65,6 +65,8 @@ workflows:
     jobs:
       - build
       - deploy:
+          requires:
+            - build
           filters:
             branches:
               only:
