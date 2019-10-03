@@ -6,7 +6,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: rust-cache
+          key: rust-cache-{{ .Branch }}
       - run:
           name: Build and test
           command: |
@@ -30,7 +30,7 @@ jobs:
             - static
             - templates
       - save_cache:
-          key: rust-cache
+          key: rust-cache-{{ .Branch }}
           paths:
             - "/usr/local/cargo"
             - "./target"
