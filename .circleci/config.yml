@@ -11,8 +11,10 @@ jobs:
           name: Build and test
           command: |
             echo $CARGO_HOME
-            rustup component add rustfmt-preview
+            rustup component add rustfmt
+            cargo install cargo-audit
             cargo fmt -- --check
+            cargo audit
             cargo build
             cargo test
       - run:
