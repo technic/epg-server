@@ -3,6 +3,8 @@ extern crate migrant_lib;
 
 use self::error_chain::ChainedError;
 use crate::epg::{ChannelInfo, EpgNow, Program};
+use crate::xmltv::XmltvItem;
+use crate::xmltv::XmltvReader;
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Result, NO_PARAMS};
 use std::collections::hash_map::Entry;
@@ -11,8 +13,6 @@ use std::error::Error;
 use std::io::BufRead;
 use std::path::PathBuf;
 use std::{fmt, fs};
-use crate::xmltv::XmltvItem;
-use crate::xmltv::XmltvReader;
 
 pub struct ProgramsDatabase {
     file: String,
@@ -303,7 +303,11 @@ impl ProgramsDatabase {
 fn insert_channel(conn: &Connection, alias: &str, name: &str, icon_url: &str) -> Result<i64> {
     let mut stmt =
         conn.prepare_cached("insert into channels (alias, name, icon_url) values (?1, ?2, ?3)")?;
-    let row_id = stmt.insert(&[&alias as &dyn ToSql, &name as &dyn ToSql, &icon_url as &dyn ToSql])?;
+    let row_id = stmt.insert(&[
+        &alias as &dyn ToSql,
+        &name as &dyn ToSql,
+        &icon_url as &dyn ToSql,
+    ])?;
     Ok(row_id)
 }
 
@@ -318,7 +322,12 @@ fn update_channel(
     let mut stmt = conn.prepare_cached(
         "insert or replace into channels (id, alias, name, icon_url) values (?1, ?2, ?3, ?4)",
     )?;
-    let row_id = stmt.insert(&[&id, &alias as &dyn ToSql, &name as &dyn ToSql, &icon_url as &dyn ToSql])?;
+    let row_id = stmt.insert(&[
+        &id,
+        &alias as &dyn ToSql,
+        &name as &dyn ToSql,
+        &icon_url as &dyn ToSql,
+    ])?;
     assert_eq!(row_id, id);
     Ok(())
 }

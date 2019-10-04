@@ -1,7 +1,7 @@
-use chrono::prelude::*;
-use core::borrow::Borrow;
 use crate::epg::ChannelInfo;
 use crate::epg::{Channel, Program};
+use chrono::prelude::*;
+use core::borrow::Borrow;
 use quick_xml::events::attributes::Attribute;
 use quick_xml::events::attributes::Attributes;
 use quick_xml::events::Event;
