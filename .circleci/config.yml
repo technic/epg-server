@@ -17,7 +17,9 @@ jobs:
             cargo test
       - run:
           name: Webpack
-          command: npm run-script build
+          command: |
+            npm install
+            npm run-script build
       - run:
           name: Release build
           command: >
