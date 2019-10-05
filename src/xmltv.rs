@@ -1,17 +1,11 @@
-use crate::epg::ChannelInfo;
-use crate::epg::{Channel, Program};
+use crate::epg::{ChannelInfo, Program};
 use chrono::prelude::*;
-use core::borrow::Borrow;
-use quick_xml::events::attributes::Attribute;
 use quick_xml::events::attributes::Attributes;
 use quick_xml::events::Event;
 use quick_xml::Reader;
-use std::borrow::Cow;
-use std::collections::HashMap;
 use std::io::BufRead;
 use std::ops::Deref;
 use std::str;
-use std::time::SystemTime;
 
 struct ProgramParser {
     channel_alias: String,

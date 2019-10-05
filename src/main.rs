@@ -1,28 +1,5 @@
-extern crate askama;
-extern crate bson;
-extern crate chrono;
-extern crate clap;
-extern crate flate2;
-extern crate hyperx;
-extern crate iron;
-extern crate persistent;
-extern crate quick_xml;
-extern crate reqwest;
-extern crate router;
-extern crate timer;
-extern crate urlencoded;
-
-extern crate serde;
-extern crate serde_json;
-#[macro_use]
-extern crate serde_derive;
-extern crate core;
-extern crate hyper;
-extern crate rusqlite;
-
 use askama::Template;
 use chrono::prelude::*;
-use flate2::read::GzDecoder;
 use hyperx::header::HttpDate;
 use iron::prelude::*;
 use iron::status;
@@ -30,10 +7,10 @@ use iron::Error;
 use mount::Mount;
 use reqwest::header::LAST_MODIFIED;
 use router::Router;
+use serde_derive::Serialize;
 use staticfile::Static;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
-use std::ops::Deref;
 use std::panic;
 use std::str;
 use std::str::FromStr;
@@ -41,7 +18,6 @@ use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time;
 use std::time::{SystemTime, UNIX_EPOCH};
-use timer::Timer;
 use urlencoded::UrlEncodedQuery;
 
 mod db;

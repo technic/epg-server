@@ -1,10 +1,7 @@
-extern crate error_chain;
-extern crate migrant_lib;
-
-use self::error_chain::ChainedError;
 use crate::epg::{ChannelInfo, EpgNow, Program};
 use crate::xmltv::XmltvItem;
 use crate::xmltv::XmltvReader;
+use error_chain::ChainedError;
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Result, NO_PARAMS};
 use std::collections::hash_map::Entry;
