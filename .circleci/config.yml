@@ -34,7 +34,7 @@ jobs:
             - static
             - templates
       - save_cache:
-          key: rust-cache-{{ .Branch }}
+          key: rust-cache-{{ .Branch }}-v1
           paths:
             #- "/usr/local/cargo"
             - "./target"
