@@ -154,7 +154,7 @@ impl ProgramsDatabase {
                                     update_channel(
                                         &tx,
                                         id,
-                                        &entry.key(),
+                                        entry.key(),
                                         &channel.name,
                                         &channel.icon_url,
                                     )?;
@@ -163,7 +163,7 @@ impl ProgramsDatabase {
                                     // Insert new channel and assign it new id
                                     let id = insert_channel(
                                         &tx,
-                                        &entry.key(),
+                                        entry.key(),
                                         &channel.name,
                                         &channel.icon_url,
                                     )?;
