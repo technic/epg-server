@@ -150,7 +150,7 @@ impl ProgramsDatabase {
                             }
                             Entry::Vacant(entry) => {
                                 // First try use alias as an integer id
-                                if let Some(id) = entry.key().parse::<i64>().ok() {
+                                if let Ok(id) = entry.key().parse::<i64>() {
                                     update_channel(
                                         &tx,
                                         id,
@@ -457,10 +457,7 @@ mod tests {
 
         let channels = db.get_channels().unwrap();
         assert_eq!(
-            channels
-                .iter()
-                .map(|&(id, _)| id)
-                .collect::<Vec<_>>(),
+            channels.iter().map(|&(id, _)| id).collect::<Vec<_>>(),
             vec![1, 2, 3]
         );
 

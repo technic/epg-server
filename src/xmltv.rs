@@ -61,12 +61,12 @@ impl ProgramParser {
             }
             Event::Text(s) => match self.field {
                 Some(ProgramField::Title) => {
-                    if let Some(s) = s.unescape_and_decode(reader).ok() {
+                    if let Ok(s) = s.unescape_and_decode(reader) {
                         self.program.title = s;
                     }
                 }
                 Some(ProgramField::Description) => {
-                    if let Some(s) = s.unescape_and_decode(reader).ok() {
+                    if let Ok(s) = s.unescape_and_decode(reader) {
                         self.program.description = s;
                     }
                 }
@@ -182,12 +182,13 @@ impl ChannelParser {
                     }
                 }
             }
-            Event::Text(s) => match self.field {
-                Some(ChannelField::Name) => {
-                    self.channel.name = s.unescape_and_decode(reader).unwrap_or("".to_string());
+            Event::Text(s) => {
+                if let Some(ChannelField::Name) = self.field {
+                    self.channel.name = s
+                        .unescape_and_decode(reader)
+                        .unwrap_or_else(|_| "".to_string());
                 }
-                _ => {}
-            },
+            }
             Event::End(element) => {
                 if element.local_name() == Self::TAG {
                     result = Some(self.channel.clone());
@@ -297,19 +298,21 @@ impl<R: BufRead> Iterator for XmltvReader<R> {
             };
             match self.level {
                 Level::Top => match ev {
-                    Event::Start(ref element) => match element.local_name() {
-                        ProgramParser::TAG => {
-                            self.level = Level::Program;
-                            self.program_parser.handle_event(&ev, &self.parser);
+                    Event::Start(ref element) | Event::Empty(ref element) => {
+                        match element.local_name() {
+                            ProgramParser::TAG => {
+                                self.level = Level::Program;
+                                self.program_parser.handle_event(&ev, &self.parser);
+                            }
+                            ChannelParser::TAG => {
+                                self.level = Level::Channel;
+                                self.channel_parser.handle_event(&ev, &self.parser);
+                            }
+                            _ => {
+                                eprintln!("unknown tag {:?}", element.local_name());
+                            }
                         }
-                        ChannelParser::TAG => {
-                            self.level = Level::Channel;
-                            self.channel_parser.handle_event(&ev, &self.parser);
-                        }
-                        _ => {
-                            eprintln!("unknown tag {:?}", element.local_name());
-                        }
-                    },
+                    }
                     _ => {}
                 },
                 Level::Channel => {

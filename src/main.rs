@@ -29,7 +29,7 @@ use epg::{ChannelInfo, EpgNow, Program};
 use xmltv::XmltvReader;
 
 /// Use this function until #54361 becomes stable
-fn time_elapsed(t: &SystemTime) -> f64 {
+fn time_elapsed(t: SystemTime) -> f64 {
     let d = t.elapsed().unwrap();
     d.as_secs() as f64 + d.subsec_micros() as f64 * 1e-6
 }
@@ -71,7 +71,7 @@ impl LiveCache {
     }
 
     fn contains_time(&self, t: i64) -> bool {
-        (self.begin <= t && t <= self.end) && self.data.len() > 0
+        (self.begin <= t && t <= self.end) && !self.data.is_empty()
     }
 
     fn to_json(&self) -> String {
@@ -113,7 +113,7 @@ impl EpgSqlServer {
         self.db.load_xmltv(xmltv).unwrap();
         self.cache.write().unwrap().clear();
 
-        println!("Database transactions took {}s", time_elapsed(&t));
+        println!("Database transactions took {}s", time_elapsed(t));
     }
 
     fn get_epg_day(&self, id: i64, date: chrono::Date<Utc>) -> Option<Vec<Program>> {
@@ -175,7 +175,7 @@ fn bad_request<E: 'static + Error + Send>(error: E) -> IronError {
 }
 
 fn main() {
-    const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+    const VERSION: &str = env!("CARGO_PKG_VERSION");
 
     let args = clap::App::new("epg server")
         .version(VERSION)
@@ -314,7 +314,7 @@ fn main() {
             .and_then(|l| l.last())
             .and_then(|s| s.parse::<i64>().ok())
             .and_then(|ts| Some(Utc.timestamp(ts, 0)))
-            .unwrap_or(Utc::now());
+            .unwrap_or_else(Utc::now);
 
         let t = SystemTime::now();
         let out = data.get_epg_list(time);
