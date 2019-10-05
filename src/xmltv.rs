@@ -290,9 +290,9 @@ impl<R: BufRead> Iterator for XmltvReader<R> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
+        // We do not borrow from buffer, clear it or it can grow up to the file size
+        self.buf.clear();
         loop {
-            // We do not borrow from buffer, clear it or it can grow up to the file size
-            self.buf.clear();
             let ev = match self.parser.read_event(&mut self.buf) {
                 Ok(Event::Eof) => return None,
                 Ok(ev) => ev,
