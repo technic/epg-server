@@ -6,7 +6,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: rust-cache-{{ .Branch }}-v1
+          key: v2-rust-cache-{{ .Branch }}-
       - run:
           name: Build and test
           command: |
@@ -34,9 +34,9 @@ jobs:
             - static
             - templates
       - save_cache:
-          key: rust-cache-{{ .Branch }}-v1
+          key: v2-rust-cache-{{ .Branch }}-{{ checksum "Cargo.lock" }}
           paths:
-            #- "/usr/local/cargo"
+            - "/usr/local/cargo/registry"
             - "./target"
   deploy:
     docker:
