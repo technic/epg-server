@@ -6,7 +6,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: rust-cache-{{ .Branch }}
+          key: rust-cache-{{ .Branch }}-v1
       - run:
           name: Build and test
           command: |
@@ -36,7 +36,7 @@ jobs:
       - save_cache:
           key: rust-cache-{{ .Branch }}
           paths:
-            - "/usr/local/cargo"
+            #- "/usr/local/cargo"
             - "./target"
   deploy:
     docker:
