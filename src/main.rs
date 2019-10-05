@@ -25,7 +25,7 @@ mod epg;
 mod xmltv;
 
 use db::ProgramsDatabase;
-use epg::{Channel, ChannelInfo, EpgNow, Program};
+use epg::{ChannelInfo, EpgNow, Program};
 use xmltv::XmltvReader;
 
 /// Use this function until #54361 becomes stable
@@ -142,7 +142,7 @@ impl EpgSqlServer {
             .get_channels()
             .unwrap()
             .into_iter()
-            .map(|(id, channel)| channel)
+            .map(|(_, channel)| channel)
             .collect::<Vec<_>>()
     }
 
@@ -167,29 +167,6 @@ impl EpgSqlServer {
 
 impl iron::typemap::Key for EpgSqlServer {
     type Value = EpgSqlServer;
-}
-
-macro_rules! try_handler {
-    ($e:expr) => {
-        match $e {
-            Ok(x) => x,
-            Err(x) => {
-                return Ok(Response::with((
-                    status::InternalServerError,
-                    x.description(),
-                )));
-            }
-        }
-    };
-    ($e:expr, $error:expr) => {
-        match $e {
-            Ok(x) => x,
-            Err(x) => return Ok(Repsonse::with((
-                    $error,
-                    x.description(),
-                )));
-        }
-    };
 }
 
 fn bad_request<E: 'static + Error + Send>(error: E) -> IronError {

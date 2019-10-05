@@ -65,6 +65,8 @@ pub struct Channel {
     pub programs: Vec<Program>,
 }
 
+// Old implementation for in memory database
+#[allow(dead_code)]
 impl Channel {
     /*
     pub fn from_info(c: ChannelInfo) -> Self {
