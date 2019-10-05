@@ -1,5 +1,5 @@
 use chrono::prelude::*;
-use serde_derive::{Serialize, Deserialize};
+use serde_derive::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
