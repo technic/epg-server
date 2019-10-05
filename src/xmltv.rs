@@ -62,12 +62,12 @@ impl ProgramParser {
             Event::Text(s) => match self.field {
                 Some(ProgramField::Title) => {
                     if let Some(s) = s.unescape_and_decode(reader).ok() {
-                        self.program.title = s.to_string();
+                        self.program.title = s;
                     }
                 }
                 Some(ProgramField::Description) => {
                     if let Some(s) = s.unescape_and_decode(reader).ok() {
-                        self.program.description = s.to_string();
+                        self.program.description = s;
                     }
                 }
                 _ => {}
@@ -184,7 +184,7 @@ impl ChannelParser {
             }
             Event::Text(s) => match self.field {
                 Some(ChannelField::Name) => {
-                    self.channel.name = str::from_utf8(s).unwrap_or("").to_string();
+                    self.channel.name = s.unescape_and_decode(reader).unwrap_or("".to_string());
                 }
                 _ => {}
             },
