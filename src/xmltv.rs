@@ -272,7 +272,7 @@ impl<R: BufRead> XmltvReader<R> {
         Self {
             level: Level::Top,
             parser: reader,
-            buf: Vec::new(),
+            buf: Vec::with_capacity(2048),
             channel_parser: ChannelParser::new(),
             program_parser: ProgramParser::new(),
         }
@@ -290,6 +290,8 @@ impl<R: BufRead> Iterator for XmltvReader<R> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
+        // We do not borrow from buffer, clear it or it can grow up to the file size
+        self.buf.clear();
         loop {
             let ev = match self.parser.read_event(&mut self.buf) {
                 Ok(Event::Eof) => return None,
