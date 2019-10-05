@@ -175,17 +175,7 @@ impl ProgramsDatabase {
                     }
                     XmltvItem::Program((alias, program)) => {
                         if let Some(&id) = ids.get(&alias) {
-                            let mut stmt = tx.prepare_cached(
-                                "insert into programs1 (channel, begin, end, title, description) \
-                                 values (?1, ?2, ?3, ?4, ?5)",
-                            )?;
-                            stmt.execute(&[
-                                &id,
-                                &program.begin,
-                                &program.end,
-                                &program.title as &dyn ToSql,
-                                &program.description as &dyn ToSql,
-                            ])?;
+                            insert_program(&tx, id, &program)?;
                             ins_p += 1;
                         } else {
                             eprintln!("Skip program for unknown channel {}", alias);
@@ -329,28 +319,18 @@ fn update_channel(
     Ok(())
 }
 
-/// Wrapper for `insert_channel`
-fn insert_channel_info(conn: &Connection, channel: &ChannelInfo) -> Result<(i64)> {
-    insert_channel(conn, &channel.alias, &channel.name, &channel.icon_url)
-}
-
-/// Wrapper for `update_channel`
-fn update_channel_info(conn: &Connection, id: i64, channel: &ChannelInfo) -> Result<()> {
-    update_channel(conn, id, &channel.alias, &channel.name, &channel.icon_url)
-}
-
-fn insert_program(conn: &Connection, channel: i64, program: &Program) -> Result<()> {
-    conn.execute(
+fn insert_program(conn: &Connection, channel_id: i64, program: &Program) -> Result<()> {
+    let mut stmt = conn.prepare_cached(
         "insert into programs1 (channel, begin, end, title, description) \
          values (?1, ?2, ?3, ?4, ?5)",
-        &[
-            &channel,
-            &program.begin,
-            &program.end,
-            &program.title as &dyn ToSql,
-            &program.description as &dyn ToSql,
-        ],
     )?;
+    stmt.execute(&[
+        &channel_id,
+        &program.begin,
+        &program.end,
+        &program.title as &dyn ToSql,
+        &program.description as &dyn ToSql,
+    ])?;
     Ok(())
 }
 
@@ -431,12 +411,17 @@ mod tests {
     use std::fs;
     use std::path::Path;
 
+    /// Wrapper for `update_channel`
+    fn update_channel_info(conn: &Connection, id: i64, channel: &ChannelInfo) -> Result<()> {
+        update_channel(conn, id, &channel.alias, &channel.name, &channel.icon_url)
+    }
+
     #[test]
     fn test_database() {
         if Path::new("test.db").exists() {
             fs::remove_file("test.db").unwrap();
         }
-        let mut db = ProgramsDatabase::open("test.db").unwrap();
+        let db = ProgramsDatabase::open("test.db").unwrap();
         let mut conn = Connection::open(&db.file).unwrap();
 
         update_channel_info(
@@ -474,7 +459,7 @@ mod tests {
         assert_eq!(
             channels
                 .iter()
-                .map(|&(id, ref info)| id)
+                .map(|&(id, _)| id)
                 .collect::<Vec<_>>(),
             vec![1, 2, 3]
         );
