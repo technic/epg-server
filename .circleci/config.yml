@@ -44,7 +44,7 @@ jobs:
             - "./target"
   deploy:
     docker:
-      - image: rust:1.37-stretch
+      - image: circleci/rust:1.37-stretch-node
     steps:
       - attach_workspace:
           at: .
