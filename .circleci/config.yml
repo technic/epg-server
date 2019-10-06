@@ -57,6 +57,7 @@ jobs:
       - run:
           name: Deploy
           command: |
+            ls -lR ./dist
             rsync --recursive --delete-after --delay-updates ./dist $USERNAME@$HOST:$APP_PATH
             ssh $USERNAME@$HOST sudo /bin/systemctl restart epg-server-soveni epg-server-king
   mirror:
