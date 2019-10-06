@@ -1,13 +1,16 @@
 [Unit]
-Description=EPG Server
+Description=EPG Server %I
+After=network.target
 
 [Service]
+User=someuser
 Environment=RUST_LOG=info
-WorkingDirectory=/usr/local
-ExecStart=/usr/local/bin/epg-server
+Environment=RUST_BACKTRACE=1
+WorkingDirectory=/opt/epg-server
+ExecStart=/opt/epg-server/app
 StandardOutput=syslog
 StandardError=syslog
-SyslogIdentifier=epg-server
+SyslogIdentifier=epg-server-%i
 
 [Install]
 WantedBy=multi-user.target
