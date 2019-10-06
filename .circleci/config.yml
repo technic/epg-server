@@ -27,12 +27,16 @@ jobs:
           command: >
             OPENSSL_STATIC=1 OPENSSL_LIB_DIR=/usr/lib/x86_64-linux-gnu OPENSSL_INCLUDE_DIR=/usr/include/openssl
             cargo build --release
+      - run:
+          name: Stage files
+          command: |
+            mkdir dist
+            cp -a ./target/release/epg-server dist/app
+            cp -a ./static dist
       - persist_to_workspace:
           root: .
           paths:
-            - target/release
-            - static
-            - templates
+            - dist
       - save_cache:
           key: v2-rust-cache-{{ .Branch }}-{{ checksum "Cargo.lock" }}
           paths:
@@ -53,8 +57,7 @@ jobs:
       - run:
           name: Deploy
           command: |
-            scp ./target/release/epg-server $USERNAME@$HOST:~/epg-server.tmp
-            ssh $USERNAME@$HOST mv epg-server.tmp epg-server
+            rsync --recursive --delete-after --delay-updates ./dist $USERNAME@$HOST:$APP_PATH
             ssh $USERNAME@$HOST sudo /bin/systemctl restart epg-server-soveni epg-server-king
   mirror:
     docker:
