@@ -184,6 +184,7 @@ fn main() {
         .arg(
             clap::Arg::with_name("port")
                 .long("port")
+                .env("APP_PORT")
                 .takes_value(true)
                 .default_value("3000")
                 .help("The port to listen to"),
@@ -191,12 +192,14 @@ fn main() {
         .arg(
             clap::Arg::with_name("url")
                 .long("url")
+                .env("APP_URL")
                 .takes_value(true)
                 .help("xmltv download url"),
         )
         .arg(
             clap::Arg::with_name("db_path")
                 .long("db")
+                .env("APP_DB")
                 .takes_value(true)
                 .default_value("./epg.db")
                 .help("path to sqlite database"),
