@@ -3,13 +3,13 @@ use chrono::prelude::*;
 use hyperx::header::HttpDate;
 use iron::prelude::*;
 use iron::status;
-use iron::Error;
 use mount::Mount;
 use reqwest::header::LAST_MODIFIED;
 use router::Router;
 use serde_derive::Serialize;
 use staticfile::Static;
 use std::collections::HashMap;
+use std::error::Error;
 use std::io::{BufRead, BufReader};
 use std::panic;
 use std::str;
@@ -194,6 +194,13 @@ fn main() {
                 .takes_value(true)
                 .help("xmltv download url"),
         )
+        .arg(
+            clap::Arg::with_name("db_path")
+                .long("db")
+                .takes_value(true)
+                .default_value("./epg.db")
+                .help("path to sqlite database"),
+        )
         .get_matches();
 
     let port = {
@@ -204,7 +211,6 @@ fn main() {
         })
     };
 
-    println!("epg server starting");
     let url = args
         .value_of("url")
         .unwrap_or_else(|| {
@@ -212,6 +218,29 @@ fn main() {
             std::process::exit(1);
         })
         .to_owned();
+
+    let db_path = {
+        fn terminate<T>(e: Box<dyn Error>) -> T {
+            eprintln!("Invalid path to database: {}", e);
+            std::process::exit(1);
+        };
+        let path = Path::new(args.value_of("db_path").unwrap());
+        if !path.is_file() {
+            println!("Creating empty database file");
+            std::fs::File::create(path)
+                .map_err(|e| e.into())
+                .unwrap_or_else(terminate);
+        }
+        std::fs::canonicalize(path)
+            .map_err(|e| e.into())
+            .unwrap_or_else(terminate)
+            .to_str()
+            .map(|s| s.to_owned())
+            .ok_or("non utf-8".into())
+            .unwrap_or_else(terminate)
+    };
+
+    println!("epg server starting");
 
     fn update_epg(last_t: HttpDate, epg_wrapper: &Arc<EpgSqlServer>, url: &str) -> HttpDate {
         println!("check for new epg");
@@ -235,7 +264,7 @@ fn main() {
         t
     }
 
-    let app = Arc::new(EpgSqlServer::new("epg.db"));
+    let app = Arc::new(EpgSqlServer::new(&db_path));
 
     let _child = thread::spawn({
         let app = app.clone();

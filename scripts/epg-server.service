@@ -3,6 +3,7 @@ Description=EPG Server
 
 [Service]
 Environment=RUST_LOG=info
+WorkingDirectory=/usr/local
 ExecStart=/usr/local/bin/epg-server
 StandardOutput=syslog
 StandardError=syslog
