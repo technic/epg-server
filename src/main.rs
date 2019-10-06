@@ -138,12 +138,15 @@ impl EpgSqlServer {
     }
 
     fn get_channels(&self) -> Vec<ChannelInfo> {
-        self.db
+        let mut vec = self
+            .db
             .get_channels()
             .unwrap()
             .into_iter()
             .map(|(_, channel)| channel)
-            .collect::<Vec<_>>()
+            .collect::<Vec<_>>();
+        vec.sort_by(|a, b| a.name.cmp(&b.name));
+        vec
     }
 
     fn get_channels_alias(&self) -> HashMap<String, i64> {
