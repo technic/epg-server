@@ -16,7 +16,8 @@ Environment=APP_PORT=3000
 Environment=APP_DB=/path/to/epg.db
 ```
 
-The example nginx configuration may look like this
+## The example nginx configuration
+To forward requests to epg-server service you may use configuration like this
 ```
 location /epg-foobar/ {
     proxy_set_header X-Real-IP $remote_addr;
