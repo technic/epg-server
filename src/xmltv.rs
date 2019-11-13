@@ -314,7 +314,11 @@ impl<R: BufRead> Iterator for XmltvReader<R> {
                                 self.channel_parser.handle_event(&ev, &self.parser);
                             }
                             _ => {
-                                eprintln!("unknown tag {:?}", element.local_name());
+                                if let Ok(tag) = str::from_utf8(element.local_name()) {
+                                    eprintln!("unknown tag {}", tag);
+                                } else {
+                                    eprintln!("unknown tag {:?}", element.local_name());
+                                }
                             }
                         }
                     }
