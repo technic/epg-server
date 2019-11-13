@@ -1,10 +1,11 @@
 use askama::Template;
 use chrono::prelude::*;
+use flate2::read::GzDecoder;
 use hyperx::header::HttpDate;
 use iron::prelude::*;
 use iron::status;
 use mount::Mount;
-use reqwest::header::LAST_MODIFIED;
+use reqwest::header::{CONTENT_TYPE, LAST_MODIFIED};
 use router::Router;
 use serde_derive::Serialize;
 use staticfile::Static;
@@ -261,8 +262,26 @@ fn main() {
         println!("last modified {}", t);
         if t > last_t {
             println!("loading xmltv");
-            let reader = XmltvReader::new(BufReader::new(result));
-            epg_wrapper.update_data(reader);
+            let mut zipped = true;
+            use mime::Mime;
+            if let Some(content_type) = result
+                .headers()
+                .get(CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| Mime::from_str(s).ok())
+            {
+                println!("{:?}", content_type);
+                match (content_type.type_(), content_type.subtype()) {
+                    (_, mime::XML) => zipped = false,
+                    _ => {}
+                }
+            }
+            let reader: Box<dyn BufRead> = if !zipped {
+                Box::new(BufReader::new(result))
+            } else {
+                Box::new(BufReader::new(GzDecoder::new(result)))
+            };
+            epg_wrapper.update_data(XmltvReader::new(reader));
             println!("updated epg data");
         } else {
             println!("already up to date");
