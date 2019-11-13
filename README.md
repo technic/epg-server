@@ -15,3 +15,15 @@ Environment=APP_URL=http://foo.bar/xmltv.xml
 Environment=APP_PORT=3000
 Environment=APP_DB=/path/to/epg.db
 ```
+
+The example nginx configuration may look like this
+```
+location /epg-foobar/ {
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-NginX-Proxy true;
+    proxy_pass http://localhost:3000/;
+    proxy_redirect off;
+}
+``` 
