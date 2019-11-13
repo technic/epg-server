@@ -168,9 +168,14 @@ impl ChannelParser {
     ) -> Option<ChannelInfo> {
         let mut result = None;
         match ev {
-            Event::Start(element) => {
+            Event::Start(element) | Event::Empty(element) => {
                 if element.local_name() == Self::TAG {
                     self.parse_attributes(element.attributes());
+                    // FIXME: copy from Event::End case
+                    if let Event::Empty(_) = ev {
+                        result = Some(self.channel.clone());
+                        self.reset();
+                    }
                 } else {
                     self.field = str::from_utf8(element.local_name())
                         .ok()
