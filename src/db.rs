@@ -193,6 +193,8 @@ impl ProgramsDatabase {
 
         // Merge new programs data into database
         append_programs(&mut conn)?;
+        // Clean up obsolete channels
+        clear_channels(&mut conn)?;
         Ok(())
     }
 
@@ -399,6 +401,18 @@ fn append_programs(conn: &mut Connection) -> Result<()> {
     }
 
     conn.execute("delete from programs1", NO_PARAMS)?;
+    Ok(())
+}
+
+/// Remove channels with no programs
+fn clear_channels(conn: &Connection) -> Result<()> {
+    println!("Clearing channels without epg data");
+    let count = conn.execute(
+        "delete from channels where \
+         (select count(id) from programs where programs.channel=channels.id)=0",
+        NO_PARAMS,
+    )?;
+    println!("Removed {} rows.", count);
     Ok(())
 }
 
