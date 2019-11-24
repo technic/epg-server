@@ -240,6 +240,29 @@ impl<R: BufRead> Iterator for Playlist<R> {
     }
 }
 
+pub struct PlaylistWriter {
+    storage: String,
+}
+
+impl PlaylistWriter {
+    pub fn new() -> Self {
+        let mut storage = String::new();
+        storage.push_str(EXTM3U);
+        storage.push('\n');
+        Self { storage: storage }
+    }
+
+    pub fn push(&mut self, entry: &Entry) {
+        entry.write_to(&mut self.storage);
+    }
+}
+
+impl Into<String> for PlaylistWriter {
+    fn into(self) -> String {
+        self.storage
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
