@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/rust:1.37-stretch-node
+      - image: circleci/rust:1.39-stretch-node
     steps:
       - checkout
       - restore_cache:
@@ -44,7 +44,7 @@ jobs:
             - "./target"
   deploy:
     docker:
-      - image: circleci/rust:1.37-stretch-node
+      - image: circleci/rust:1.39-stretch-node
     steps:
       - attach_workspace:
           at: .
