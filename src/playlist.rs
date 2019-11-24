@@ -72,7 +72,7 @@ fn find(name: &str, server: &EpgSqlServer) -> Vec<String> {
     let channels = server.get_channels();
     let dataset = channels.iter().map(|c| c.name.clone()).collect::<Vec<_>>();
     let mut corpus = VecMatcher::new(&dataset, 2);
-    let ret = corpus.search(name, SIM_POSSIBLE, 15);
+    let ret = corpus.search(name, SIM_POSSIBLE, 10);
     ret.iter()
         .map(|(index, _sim)| channels[*index].name.clone())
         .collect()
