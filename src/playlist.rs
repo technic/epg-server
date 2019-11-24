@@ -173,7 +173,6 @@ impl PlaylistModel {
             playlist.push(&c.entry)
         }
         let buf: String = playlist.into();
-        
         #[derive(Template)]
         #[template(path = "playlist_table.html")]
         struct PlaylistTemplate<'a> {
