@@ -1,0 +1,37 @@
+<form id="downloadForm" style="display: none;">
+  <textarea id="confirmationText" name="playlistFile">{{ playlist }}</textarea>
+</form>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th scope="col" class="icon-col">Icon</th>
+      <th scope="col" class="name-col">Name</th>
+      <th scope="col" class="alias-col">Found</th>
+      <th scope="col" class="button-col">Edit</th>
+    </tr>
+  </thead>
+  <tbody id="playlistTable">
+    {% for c in channels %}
+    {% let rc -%}
+    {% if c.sim == 1.0 -%}
+    {% let rc = "table-success" -%}
+    {% else if c.sim >= sim_good -%}
+    {% let rc = "table-warning" -%}
+    {% else -%}
+    {% let rc = "table-danger" -%}
+    {% endif -%}
+    <tr class="{{ rc }}" id="row-{{ loop.index }}">
+      <td class="icon-col"><img src="{{ c.entry.tvg_logo() }}" /></td>
+      <td class="name-col">{{ c.entry.name() }}</td>
+      <td class="alias-col">{{ c.name }}</td>
+      <td class="button-col">
+        <button type="button" class="btn btn-primary btn-sm"><i class="fas fa-edit"></i></button>
+        {% if rc == "table-warning" %}
+        <button type="button" class="btn btn-secondary btn-sm"><i class="far fa-check-circle"></i></button>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

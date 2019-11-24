@@ -11,6 +11,7 @@ mount = "0.4"
 staticfile = "0.5"
 persistent = "*"
 urlencoded = "*"
+multipart = "0.16"
 reqwest = "0.9"
 hyper = "*"
 hyperx = "0.14"
@@ -28,6 +29,25 @@ rusqlite = { version = "0.17", features = ["functions"] }
 migrant_lib = { version = "0.24", features = ["d-sqlite"] }
 error-chain = "*"
 askama = { version = "0.8", features = ["with-iron"] }
+regex = "1.3"
+lazy_static = "1.4"
+vtext = "0.1.0-alpha.3"
+sprs = "*"
+
+[dev-dependencies]
+assert_approx_eq = "1.1"
+matches = "0.1"
+bencher = "*"
+indoc = "0.3"
+
+ndarray = "*"
+strsim = "0.9"
+fuzzy_match = "*"
+ngrammatic = "*"
 
 [profile.dev]
 opt-level = 1
+
+# [[bench]]
+# name = "fuzzy"
+# harness = false

@@ -5,6 +5,8 @@ use hyperx::header::HttpDate;
 use iron::prelude::*;
 use iron::status;
 use mount::Mount;
+use multipart::server::iron::Intercept;
+use playlist::PlaylistModel;
 use reqwest::header::{CONTENT_TYPE, LAST_MODIFIED};
 use router::Router;
 use serde_derive::Serialize;
@@ -23,6 +25,9 @@ use urlencoded::UrlEncodedQuery;
 
 mod db;
 mod epg;
+mod m3u;
+mod name_match;
+mod playlist;
 mod xmltv;
 
 use db::ProgramsDatabase;
@@ -319,11 +324,14 @@ fn main() {
     let mut mount = Mount::new();
     mount.mount("/", router);
     mount.mount("static/", Static::new(Path::new("static/")));
+    mount.mount("/m3u", PlaylistModel::new());
+    mount.mount("/m3u/static/", Static::new(Path::new("static/")));
     let mut chain = Chain::new(mount);
 
     // chain.link_after(mount);
     // FIXME: superfluous nested Arc
     chain.link_before(persistent::Read::<EpgSqlServer>::one(app));
+    chain.link_before(Intercept::default());
 
     fn get_epg_day(req: &mut Request) -> IronResult<Response> {
         let data = req.get::<persistent::Read<EpgSqlServer>>().unwrap();

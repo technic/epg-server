@@ -22,3 +22,27 @@
     color: #333;
     font-weight: bold;
 }
+
+table.table {
+    table-layout: fixed;
+}
+
+th.icon-col {
+    width: 8%;
+}
+
+th.name-col {
+    width: 38%;
+}
+
+th.alias-col {
+    width: 38%;
+}
+
+th.button-col {
+    width: 16%;
+}
+
+.icon-col img {
+    width: 100%;
+}
