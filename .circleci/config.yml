@@ -33,6 +33,7 @@ jobs:
             mkdir dist
             cp -a ./target/release/epg-server dist/app
             cp -a ./static dist
+            install -m 755 backup-db.sh dist
       - persist_to_workspace:
           root: .
           paths:
