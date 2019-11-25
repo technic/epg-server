@@ -28,3 +28,7 @@ location /epg-foobar/ {
     proxy_redirect off;
 }
 ``` 
+
+## Note to developer
+- Keep code clean by using `cargo clippy`
+- Keep dependencies updated with `cargo update`
