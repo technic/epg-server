@@ -190,6 +190,8 @@ impl Ngram {
     }
     fn pad_str(&self, text: &str) -> String {
         let pad = self.window - 1;
+        // FIXME: data cleaning should be in the other place
+        let text = text.trim();
         let mut s = String::with_capacity(text.len() + pad * 2);
         for _ in 0..pad {
             s.push(' ');
