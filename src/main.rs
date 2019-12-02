@@ -263,7 +263,7 @@ fn main() {
             .get(LAST_MODIFIED)
             .and_then(|v| v.to_str().ok())
             .and_then(|s| HttpDate::from_str(s).ok())
-            .unwrap();
+            .unwrap_or(HttpDate::from(SystemTime::now()));
         println!("last modified {}", t);
         if t > last_t {
             println!("loading xmltv");
