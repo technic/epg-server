@@ -19,3 +19,5 @@ epg.db-*
 static/*.min.js
 static/*.min.css
 static/fonts
+# secret
+.env

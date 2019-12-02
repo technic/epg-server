@@ -4,8 +4,10 @@ use crate::m3u::PlaylistWriter;
 use crate::name_match::VecMatcher;
 use crate::EpgSqlServer;
 use askama::Template;
+use io::Read;
 use iron::prelude::*;
 use iron::status;
+use lazy_static::lazy_static;
 use multipart::server::save::DataReader;
 use multipart::server::Entries;
 use router::Router;
@@ -123,6 +125,13 @@ impl std::fmt::Display for ErrorMessage {
 
 impl std::error::Error for ErrorMessage {}
 
+static RECAPTCHA_KEY: &str = "g-recaptcha-response";
+lazy_static! {
+    static ref RECAPTCHA_PUBLIC: String = dotenv::var("RECAPTCHA_PUBLIC").unwrap_or(String::new());
+    static ref RECAPTCHA_PRIVATE: String =
+        dotenv::var("RECAPTCHA_PRIVATE").unwrap_or(String::new());
+}
+
 impl PlaylistModel {
     pub fn new() -> Router {
         let mut router = Router::new();
@@ -154,8 +163,15 @@ impl PlaylistModel {
     fn welcome_page(_req: &mut Request) -> IronResult<Response> {
         #[derive(Template)]
         #[template(path = "playlist.html")]
-        struct HomeTemplate {}
-        Ok(Response::with((status::Ok, HomeTemplate {})))
+        struct HomeTemplate {
+            recaptcha_public: &'static str,
+        }
+        Ok(Response::with((
+            status::Ok,
+            HomeTemplate {
+                recaptcha_public: &RECAPTCHA_PUBLIC,
+            },
+        )))
     }
 
     fn upload_playlist(req: &mut Request) -> IronResult<Response> {
@@ -165,7 +181,14 @@ impl PlaylistModel {
             .get::<Entries>()
             .ok_or_else(|| ErrorMessage::from("No parameters"))
             .map_err(bad_request)?;
-
+        let mut captcha = String::new();
+        Self::get_entry(&entries, RECAPTCHA_KEY)?
+            .read_to_string(&mut captcha)
+            .map_err(bad_request)?;
+        if let Err(e) = recaptcha::verify(&RECAPTCHA_PRIVATE, &captcha, None) {
+            println!("captcha error {}", e);
+            return Ok(Response::with((status::Forbidden, "")));
+        }
         let file = Self::get_entry(&entries, "playlistFile")?;
         let channels = process(file, &data).map_err(bad_request)?;
         let mut playlist = PlaylistWriter::new();

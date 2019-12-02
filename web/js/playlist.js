@@ -1,4 +1,44 @@
 import $ from 'jquery';
+var captcha;
+
+window.onloadCallback = function () {
+    class Recaptcha {
+        constructor(elementId) {
+            this.working = false;
+            this.resolve = undefined;
+            this.reject = undefined;
+            this.widget_id = grecaptcha.render(elementId, {
+                "callback": (token) => {
+                    this.working = false;
+                    this.resolve(token)
+                },
+                "error-callback": (error) => {
+                    this.working = false;
+                    this.reject(error)
+                }
+            }, true);
+        }
+        execute() {
+            if (this.working) {
+                throw "Already working"
+            }
+            this.working = true;
+            return new Promise((resolve, reject) => {
+                this.resolve = resolve;
+                this.reject = reject;
+                grecaptcha.execute(this.widget_id);
+            })
+        }
+        reset() {
+            if (this.working) {
+                throw "Already working"
+            }
+            grecaptcha.reset();
+        }
+    }
+
+    captcha = new Recaptcha('captcha');
+}
 
 $(document).ready(function () {
     var changes = {};
@@ -7,23 +47,28 @@ $(document).ready(function () {
     $('#uploadForm').submit(async function (ev) {
         ev.preventDefault();
         $('#resultRow').hide();
-        var f = document.getElementById('uploadForm');
-        var formData = new FormData(f);
-        const reply = await $.ajax({
-            type: 'POST',
-            url: './index.html',
-            data: formData,
-            processData: false,
-            contentType: false,
-        });
-        $('#resultRow').show();
-        $('#tableContainer').html(reply);
-        $('#tableContainer').find('.btn.btn-primary').click(edit);
-        $('#tableContainer').find('.btn.btn-secondary').click(markOk);
+        try {
+            await captcha.execute();
+            var f = document.getElementById('uploadForm');
+            var formData = new FormData(f);
+            const reply = await $.ajax({
+                type: 'POST',
+                url: './index.html',
+                data: formData,
+                processData: false,
+                contentType: false,
+            });
+            $('#resultRow').show();
+            $('#tableContainer').html(reply);
+            $('#tableContainer').find('.btn.btn-primary').click(edit);
+            $('#tableContainer').find('.btn.btn-secondary').click(markOk);
+        } finally {
+            captcha.reset();
+        }
     })
 
-    function itemName(tr_item) {
-        return tr_item.children("td").eq(1).text();
+    function itemName($tr_item) {
+        return $tr_item.children("td").eq(1).text();
     }
 
     async function edit() {
@@ -64,18 +109,24 @@ $(document).ready(function () {
     })
 
     $("#downloadButton").click(async function () {
-        var formData = new FormData(document.getElementById('downloadForm'));
-        formData.set('changes', JSON.stringify(changes));
-        const playlist = await $.ajax({
-            type: 'POST',
-            url: './get_m3u',
-            data: formData,
-            processData: false,
-            contentType: false,
-        });
-        var blob = new Blob([playlist], { type: 'application/mpegurl' });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url; a.download = "playlist.m3u"; a.click();
+        try {
+            const token = await captcha.execute();
+            var formData = new FormData(document.getElementById('downloadForm'));
+            formData.set('changes', JSON.stringify(changes));
+            formData.set('g-recaptcha-response', token);
+            const playlist = await $.ajax({
+                type: 'POST',
+                url: './get_m3u',
+                data: formData,
+                processData: false,
+                contentType: false,
+            });
+            var blob = new Blob([playlist], { type: 'application/mpegurl' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url; a.download = "playlist.m3u"; a.click();
+        } finally {
+            captcha.reset();
+        }
     })
 });

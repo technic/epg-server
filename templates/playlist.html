@@ -4,6 +4,7 @@
 {% endblock %}
 
 {% block content %}
+<script src="https://www.google.com/recaptcha/api.js?onload=onloadCallback&render=explicit"></script>
 <div class="row">
   <div class="mt-2 offset-lg-2 col-lg-8">
     <h3 class="text-center text-dark my-3">Playlist tool for IPtvDream 4X <sup class="badge badge-secondary">beta</sup>
@@ -19,6 +20,7 @@
           <div class="col-md-3">
             <button type="submit" id="uploadButton" class="btn btn-primary w-100">Convert</button>
           </div>
+          <div id="captcha" data-sitekey="{{ recaptcha_public }}" data-size="invisible"></div>
         </form>
       </div>
     </div>
