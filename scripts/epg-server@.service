@@ -4,6 +4,7 @@ After=network.target
 
 [Service]
 User=someuser
+Environment=APP_DB=/home/someuser/%i
 Environment=RUST_LOG=info
 Environment=RUST_BACKTRACE=1
 WorkingDirectory=/opt/epg-server
