@@ -36,7 +36,11 @@ fn process<R: io::BufRead>(
     let t = SystemTime::now();
 
     let mut result = Vec::new();
-    let channels = server.get_channels();
+    let channels = server
+        .get_channels()
+        .into_iter()
+        .map(|(_, c)| c)
+        .collect::<Vec<_>>();
     let dataset = channels.iter().map(|c| c.name.clone()).collect::<Vec<_>>();
     let mut corpus = VecMatcher::new(&dataset, 2);
     for elem in Playlist::open(buf) {
@@ -71,7 +75,11 @@ fn process<R: io::BufRead>(
 
 /// Searches channels with similar name in the database
 fn find(name: &str, server: &EpgSqlServer) -> Vec<String> {
-    let channels = server.get_channels();
+    let channels = server
+        .get_channels()
+        .into_iter()
+        .map(|(_, c)| c)
+        .collect::<Vec<_>>();
     let dataset = channels.iter().map(|c| c.name.clone()).collect::<Vec<_>>();
     let mut corpus = VecMatcher::new(&dataset, 2);
     let ret = corpus.search(name, SIM_POSSIBLE, 10);
@@ -85,7 +93,11 @@ fn replace_tvg<R: io::BufRead>(
     replace: HashMap<String, String>,
     server: &EpgSqlServer,
 ) -> Result<String, m3u::Error> {
-    let channels = server.get_channels();
+    let channels = server
+        .get_channels()
+        .into_iter()
+        .map(|(_, c)| c)
+        .collect::<Vec<_>>();
     let aliases = HashMap::<&str, &str>::from_iter(
         channels.iter().map(|c| (c.name.as_str(), c.alias.as_str())),
     );

@@ -143,15 +143,19 @@ impl EpgSqlServer {
         }
     }
 
-    fn get_channels(&self) -> Vec<ChannelInfo> {
-        let mut vec = self
-            .db
+    fn find_channel(&self, id: i64) -> Option<ChannelInfo> {
+        // FIXME: shall I ask db to perform search
+        self.db
             .get_channels()
             .unwrap()
-            .into_iter()
-            .map(|(_, channel)| channel)
-            .collect::<Vec<_>>();
-        vec.sort_by(|a, b| a.name.cmp(&b.name));
+            .iter()
+            .find(|(i, _c)| *i == id)
+            .map(|(_i, c)| c.clone())
+    }
+
+    fn get_channels(&self) -> Vec<(i64, ChannelInfo)> {
+        let mut vec = self.db.get_channels().unwrap();
+        vec.sort_by(|(_, a), (_, b)| a.name.cmp(&b.name));
         vec
     }
 
@@ -317,6 +321,7 @@ fn main() {
     let mut router = Router::new();
     router.get("/epg_day", get_epg_day, "get_epg_day");
     router.get("/epg_list", get_epg_list, "get_epg_list");
+    router.get("/programs.html", get_epg_html, "get_epg_html");
     router.get("/channels", get_channel_ids, "get_channel_ids");
     router.get("/channels.html", get_channels_html, "get_channels_html");
     router.get("/channels_names", get_channel_names, "get_channel_names");
@@ -364,6 +369,47 @@ fn main() {
             }
         } else {
             Ok(Response::with((status::BadRequest, "Invalid parameters")))
+        }
+    }
+
+    fn get_epg_html(req: &mut Request) -> IronResult<Response> {
+        let data = req.get::<persistent::Read<EpgSqlServer>>().unwrap();
+        let params = req.get_ref::<UrlEncodedQuery>().map_err(bad_request)?;
+        let invalid = || Ok(Response::with((status::BadRequest, "Missing parameters")));
+        let id = match params.get("id").and_then(|l| l.last()) {
+            Some(v) => v.parse::<i64>().map_err(bad_request)?,
+            None => return invalid(),
+        };
+        let day = match params.get("day").and_then(|l| l.last()) {
+            Some(v) => NaiveDate::parse_from_str(v, "%Y.%m.%d")
+                .map(|d| Utc.from_utc_date(&d))
+                .map_err(bad_request)?,
+            None => Utc::now().date(),
+        };
+        if let Some(list) = data.get_epg_day(id, day) {
+            #[derive(Template)]
+            #[template(path = "programs.html")]
+            struct ChannelsTemplate<'a>
+            {
+                id: i64,
+                date: &'a str,
+                prev: &'a str,
+                next: &'a str,
+                channel: &'a str,
+                programs: &'a [Program],
+            }
+            let channel = data.find_channel(id).unwrap_or(ChannelInfo::new());
+            Ok(Response::with((status::Ok, ChannelsTemplate {
+                id,
+                channel: &channel.name,
+                date: &format!("{}", day.format("%A, %d %B %Y")),
+                next: &format!("{}", (day + chrono::Duration::days(1)).format("%Y.%m.%d")),
+                prev: &format!("{}", (day - chrono::Duration::days(1)).format("%Y.%m.%d")),
+                programs: &list,
+            }
+            )))
+        } else {
+            Ok(Response::with((status::NotFound, "channel not found")))
         }
     }
 
@@ -432,11 +478,13 @@ fn main() {
         #[derive(Template)]
         #[template(path = "channels.html")]
         struct ChannelsTemplate<'a> {
-            channels: &'a [ChannelInfo],
+            today: &'a str,
+            channels: &'a [(i64, ChannelInfo)],
         }
         Ok(Response::with((
             status::Ok,
             ChannelsTemplate {
+                today: &format!("{}", Utc::today().format("%Y.%m.%d")),
                 channels: &data.get_channels(),
             },
         )))

@@ -5,29 +5,35 @@
 
 {% block content %}
 <div class="row">
-  <div class="card filterable mx-auto">
-    <div class="card-header">
-      <h3 class="card-title float-left">Channels</h3>
+  <div class="filterable offset-lg-2 col-lg-8">
+    <div>
+      <h3 class="float-left">Channels</h3>
       <div class="float-right">
         <button class="btn btn-secondary btn-sm btn-filter">
           <i class="fas fa-filter"></i> Filter
         </button>
       </div>
     </div>
-    <table class="table">
+    <table class="table table-condensed table-striped">
       <thead>
         <tr class="filters">
-          <th></th>
-          <th><input type="text" class="form-control" placeholder="name" disabled></th>
-          <th><input type="text" class="form-control" placeholder="tvg-id" disabled></th>
+          <th scope="col" class="icon-col">icon</th>
+          <th scope="col" class="name-col"><input type="text" class="form-control" placeholder="name" disabled></th>
+          <th scope="col" class="alias-col"><input type="text" class="form-control" placeholder="tvg-id" disabled></th>
+          <th scope="col" class="button-col">program</th>
         </tr>
       </thead>
       <tbody>
         {% for c in channels %}
         <tr>
-          <td><img src="{{ c.icon_url }}" /></td>
-          <td>{{ c.name }}</td>
-          <td>{{ c.alias }}</td>
+          <td><img src="{{ c.1.icon_url }}" /></td>
+          <td>{{ c.1.name }}</td>
+          <td>{{ c.1.alias }}</td>
+          <td>
+            <a class="btn btn-sm" href="./programs.html?id={{ c.0 }}&day={{ today }}">
+              <i class="fas fa-info-circle"></i> EPG
+            </a>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
