@@ -181,6 +181,8 @@ impl PlaylistModel {
             .get::<Entries>()
             .ok_or_else(|| ErrorMessage::from("No parameters"))
             .map_err(bad_request)?;
+
+        // recaptcha
         let mut captcha = String::new();
         Self::get_entry(&entries, RECAPTCHA_KEY)?
             .read_to_string(&mut captcha)
@@ -189,6 +191,7 @@ impl PlaylistModel {
             println!("captcha error {}", e);
             return Ok(Response::with((status::Forbidden, "")));
         }
+
         let file = Self::get_entry(&entries, "playlistFile")?;
         let channels = process(file, &data).map_err(bad_request)?;
         let mut playlist = PlaylistWriter::new();
@@ -247,6 +250,17 @@ impl PlaylistModel {
             .get::<Entries>()
             .ok_or_else(|| ErrorMessage::from("No parameters"))
             .map_err(bad_request)?;
+
+        // recaptcha
+        let mut captcha = String::new();
+        Self::get_entry(&entries, RECAPTCHA_KEY)?
+            .read_to_string(&mut captcha)
+            .map_err(bad_request)?;
+        if let Err(e) = recaptcha::verify(&RECAPTCHA_PRIVATE, &captcha, None) {
+            println!("captcha error {}", e);
+            return Ok(Response::with((status::Forbidden, "")));
+        }
+
         let file = Self::get_entry(&entries, "playlistFile")?;
         let changes = Self::get_entry(&entries, "changes")?;
 
