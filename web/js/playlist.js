@@ -46,6 +46,10 @@ $(document).ready(function () {
 
     $('#uploadForm').submit(async function (ev) {
         ev.preventDefault();
+        if (this.checkValidity() === false) {
+            ev.stopPropagation();
+            return
+        }
         $('#resultRow').hide();
         try {
             await captcha.execute();
