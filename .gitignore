@@ -21,3 +21,4 @@ static/*.min.css
 static/fonts
 # secret
 .env
+*.m3u
