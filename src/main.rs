@@ -389,8 +389,7 @@ fn main() {
         if let Some(list) = data.get_epg_day(id, day) {
             #[derive(Template)]
             #[template(path = "programs.html")]
-            struct ChannelsTemplate<'a>
-            {
+            struct ChannelsTemplate<'a> {
                 id: i64,
                 date: &'a str,
                 prev: &'a str,
@@ -399,14 +398,16 @@ fn main() {
                 programs: &'a [Program],
             }
             let channel = data.find_channel(id).unwrap_or(ChannelInfo::new());
-            Ok(Response::with((status::Ok, ChannelsTemplate {
-                id,
-                channel: &channel.name,
-                date: &format!("{}", day.format("%A, %d %B %Y")),
-                next: &format!("{}", (day + chrono::Duration::days(1)).format("%Y.%m.%d")),
-                prev: &format!("{}", (day - chrono::Duration::days(1)).format("%Y.%m.%d")),
-                programs: &list,
-            }
+            Ok(Response::with((
+                status::Ok,
+                ChannelsTemplate {
+                    id,
+                    channel: &channel.name,
+                    date: &format!("{}", day.format("%A, %d %B %Y")),
+                    next: &format!("{}", (day + chrono::Duration::days(1)).format("%Y.%m.%d")),
+                    prev: &format!("{}", (day - chrono::Duration::days(1)).format("%Y.%m.%d")),
+                    programs: &list,
+                },
             )))
         } else {
             Ok(Response::with((status::NotFound, "channel not found")))
