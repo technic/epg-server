@@ -43,6 +43,13 @@ th.button-col {
     width: 16%;
 }
 
+td.icon-col {
+    padding: 0px;
+    text-align: center;
+    vertical-align: middle;
+}
+
 .icon-col img {
-    width: 100%;
+    max-width: 100%;
+    max-height: 2.4em;
 }
