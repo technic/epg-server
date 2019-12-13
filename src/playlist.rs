@@ -106,7 +106,9 @@ fn replace_tvg<R: io::BufRead>(
     for entry in playlist {
         let mut entry = entry?;
         if let Some(name) = replace.get(entry.name()) {
-            if let Some(tvg) = aliases.get(name.as_str()) {
+            if name.is_empty() {
+                entry.set_tvg_id("");
+            } else if let Some(tvg) = aliases.get(name.as_str()) {
                 entry.set_tvg_id(tvg);
             }
         }

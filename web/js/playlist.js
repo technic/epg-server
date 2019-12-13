@@ -106,11 +106,20 @@ $(document).ready(function () {
 
     $('#setButton').click(function () {
         const text = $("#suggestions").find('li.active').text();
+        setText(text);
+    })
+
+    $('#clearButton').click(function () {
+        const text = "";
+        setText(text);
+    })
+
+    function setText(text) {
         $('#listDialog').modal('hide');
         changes[itemName(current_item)] = text;
         current_item.children("td").eq(2).text(text);
         current_item.removeClass('table-danger').removeClass('table-warning');
-    })
+    }
 
     $("#downloadButton").click(async function () {
         try {
