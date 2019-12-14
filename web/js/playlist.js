@@ -46,11 +46,12 @@ $(document).ready(function () {
 
     $('#uploadForm').submit(async function (ev) {
         ev.preventDefault();
+        $('#resultRow').hide();
+        $('#loader').show();
         if (this.checkValidity() === false) {
             ev.stopPropagation();
             return
         }
-        $('#resultRow').hide();
         try {
             await captcha.execute();
             var f = document.getElementById('uploadForm');
@@ -62,10 +63,13 @@ $(document).ready(function () {
                 processData: false,
                 contentType: false,
             });
+            $('#loader').hide();
             $('#resultRow').show();
             $('#tableContainer').html(reply);
             $('#tableContainer').find('.btn.btn-primary').click(edit);
             $('#tableContainer').find('.btn.btn-secondary').click(markOk);
+        } catch (error) {
+            alert(error);
         } finally {
             captcha.reset();
         }
@@ -138,6 +142,8 @@ $(document).ready(function () {
             var url = URL.createObjectURL(blob);
             var a = document.createElement('a');
             a.href = url; a.download = "playlist.m3u"; a.click();
+        } catch (error) {
+            alert(error);
         } finally {
             captcha.reset();
         }
