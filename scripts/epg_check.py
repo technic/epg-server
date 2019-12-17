@@ -31,6 +31,8 @@ if __name__ == "__main__":
             check_epg(url)
         except Exception as ex:
             print(ex)
-    _check_epg('http://iptvdream.zapto.org/epg')
     _check_epg('http://iptvdream.zapto.org/epg-soveni')
-    _check_epg('http://iptvdream.zapto.org/epg-king')
+    _check_epg('http://iptvdream.zapto.org/epg-iptvxone')
+    _check_epg('http://iptvdream.zapto.org/epg-1ott')
+    _check_epg('http://iptvdream.zapto.org/epg-shara-tv')
+    _check_epg('http://iptvdream.zapto.org/epg-sharovoz')
