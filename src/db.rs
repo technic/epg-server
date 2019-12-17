@@ -1,6 +1,7 @@
 use crate::epg::{ChannelInfo, EpgNow, Program};
 use crate::xmltv::XmltvItem;
 use crate::xmltv::XmltvReader;
+use chrono::prelude::*;
 use error_chain::ChainedError;
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Result, NO_PARAMS};
@@ -191,6 +192,9 @@ impl ProgramsDatabase {
             ins_c, ins_p
         );
 
+        // Clear old epg entries from the database
+        let time = Utc::now().naive_utc() - chrono::Duration::days(20);
+        self.delete_before(time.timestamp()).unwrap();
         // Merge new programs data into database
         append_programs(&mut conn)?;
         // Clean up obsolete channels

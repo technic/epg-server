@@ -111,10 +111,6 @@ impl EpgSqlServer {
     fn update_data<R: BufRead>(&self, xmltv: XmltvReader<R>) {
         let t = SystemTime::now();
 
-        // Clear old epg entries from the database
-        let time = Utc::now().naive_utc() - chrono::Duration::days(20);
-        self.db.delete_before(time.timestamp()).unwrap();
-
         // Load new data
         self.db.load_xmltv(xmltv).unwrap();
         self.cache.write().unwrap().clear();
