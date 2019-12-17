@@ -21,7 +21,7 @@ def check_epg(url):
 
     epg_list = list(map(f, data['data']))
     coverage = float(epg_list.count(True)) / len(epg_list) * 100
-    print("Epg present on %.2f %% of channels" % coverage)
+    print("Epg present on %.2f %% of %d channels" % (coverage, len(epg_list)))
     # print(egpList)
 
 
