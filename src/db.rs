@@ -3,6 +3,7 @@ use crate::xmltv::XmltvItem;
 use crate::xmltv::XmltvReader;
 use chrono::prelude::*;
 use error_chain::ChainedError;
+use failure::Fail;
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Result, NO_PARAMS};
 use std::collections::hash_map::Entry;
@@ -130,13 +131,14 @@ impl ProgramsDatabase {
 
         let mut ins_c = 0;
         let mut ins_p = 0;
+        let mut result = Ok(());
         println!("Parsing XMLTV entries into database ...");
         // Convert xmltv into sql table
         {
             let tx = conn.transaction()?;
             for item in xmltv {
                 match item {
-                    XmltvItem::Channel(channel) => {
+                    Ok(XmltvItem::Channel(channel)) => {
                         match ids.entry(channel.alias) {
                             Entry::Occupied(entry) => {
                                 // Chanel with this alias already exists
@@ -174,13 +176,18 @@ impl ProgramsDatabase {
                         }
                         ins_c += 1;
                     }
-                    XmltvItem::Program((alias, program)) => {
+                    Ok(XmltvItem::Program((alias, program))) => {
                         if let Some(&id) = ids.get(&alias) {
                             insert_program(&tx, id, &program)?;
                             ins_p += 1;
                         } else {
                             eprintln!("Skip program for unknown channel {}", alias);
                         }
+                    }
+                    Err(e) => {
+                        // Process all parsed items and return Error in the end
+                        result = Err(rusqlite::Error::UserFunctionError(Box::new(e.compat())));
+                        break;
                     }
                 }
             }
@@ -199,7 +206,7 @@ impl ProgramsDatabase {
         append_programs(&mut conn)?;
         // Clean up obsolete channels
         clear_channels(&mut conn)?;
-        Ok(())
+        result
     }
 
     pub fn get_channels(&self) -> Result<Vec<(i64, ChannelInfo)>> {

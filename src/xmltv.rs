@@ -286,7 +286,7 @@ pub enum XmltvItem {
 }
 
 impl<R: BufRead> Iterator for XmltvReader<R> {
-    type Item = XmltvItem;
+    type Item = Result<XmltvItem, quick_xml::Error>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -298,7 +298,7 @@ impl<R: BufRead> Iterator for XmltvReader<R> {
                 Ok(ev) => ev,
                 Err(e) => {
                     println!("Xml parser error: {}", e);
-                    return None;
+                    return Some(Err(e));
                 }
             };
             match self.level {
@@ -328,14 +328,14 @@ impl<R: BufRead> Iterator for XmltvReader<R> {
                     let result = self.channel_parser.handle_event(&ev, &self.parser);
                     if let Some(channel) = result {
                         self.level = Level::Top;
-                        return Some(XmltvItem::Channel(channel));
+                        return Some(Ok(XmltvItem::Channel(channel)));
                     }
                 }
                 Level::Program => {
                     let result = self.program_parser.handle_event(&ev, &self.parser);
                     if let Some(pair) = result {
                         self.level = Level::Top;
-                        return Some(XmltvItem::Program(pair));
+                        return Some(Ok(XmltvItem::Program(pair)));
                     }
                 }
             }
