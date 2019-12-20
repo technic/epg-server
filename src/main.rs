@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::io::{BufRead, BufReader};
 use std::panic;
+use std::path::Path;
 use std::str;
 use std::str::FromStr;
 use std::sync::{Arc, RwLock};
@@ -177,158 +178,8 @@ impl iron::typemap::Key for EpgSqlServer {
     type Value = EpgSqlServer;
 }
 
-fn main() {
-    const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-    let args = clap::App::new("epg server")
-        .version(VERSION)
-        .author("technic93")
-        .about("Serves xmltv in json format")
-        .arg(
-            clap::Arg::with_name("port")
-                .long("port")
-                .env("APP_PORT")
-                .takes_value(true)
-                .default_value("3000")
-                .help("The port to listen to"),
-        )
-        .arg(
-            clap::Arg::with_name("url")
-                .long("url")
-                .env("APP_URL")
-                .takes_value(true)
-                .help("xmltv download url"),
-        )
-        .arg(
-            clap::Arg::with_name("db_path")
-                .long("db")
-                .env("APP_DB")
-                .takes_value(true)
-                .default_value("./epg.db")
-                .help("path to sqlite database"),
-        )
-        .get_matches();
-
-    let port = {
-        let s = args.value_of("port").unwrap();
-        s.parse::<i32>().unwrap_or_else(|e| {
-            eprintln!("Bad port argument '{}', {}.", s, e);
-            std::process::exit(1);
-        })
-    };
-
-    let url = args
-        .value_of("url")
-        .unwrap_or_else(|| {
-            eprintln!("Missing url argument");
-            std::process::exit(1);
-        })
-        .to_owned();
-
-    let db_path = {
-        fn terminate<T>(e: Box<dyn Error>) -> T {
-            eprintln!("Invalid path to database: {}", e);
-            std::process::exit(1);
-        };
-        let path = Path::new(args.value_of("db_path").unwrap());
-        if !path.is_file() {
-            println!("Creating empty database file");
-            std::fs::File::create(path)
-                .map_err(|e| e.into())
-                .unwrap_or_else(terminate);
-        }
-        std::fs::canonicalize(path)
-            .map_err(|e| e.into())
-            .unwrap_or_else(terminate)
-            .to_str()
-            .map(|s| s.to_owned())
-            .ok_or("non utf-8".into())
-            .unwrap_or_else(terminate)
-    };
-
-    println!("epg server starting");
-
-    fn update_epg(last_t: HttpDate, epg_wrapper: &Arc<EpgSqlServer>, url: &str) -> HttpDate {
-        println!("check for new epg");
-        let client = reqwest::Client::builder().build().unwrap();
-        let result = client.get(url).send().unwrap();
-        let t = result
-            .headers()
-            .get(LAST_MODIFIED)
-            .and_then(|v| v.to_str().ok())
-            .and_then(|s| HttpDate::from_str(s).ok())
-            .unwrap_or(HttpDate::from(SystemTime::now()));
-        println!("last modified {}", t);
-        if t > last_t {
-            println!("loading xmltv");
-            let mut zipped = true;
-            use mime::Mime;
-            if let Some(content_type) = result
-                .headers()
-                .get(CONTENT_TYPE)
-                .and_then(|v| v.to_str().ok())
-                .and_then(|s| Mime::from_str(s).ok())
-            {
-                println!("{:?}", content_type);
-                match (content_type.type_(), content_type.subtype()) {
-                    (_, mime::XML) => zipped = false,
-                    _ => {}
-                }
-            }
-            let reader: Box<dyn BufRead> = if !zipped {
-                Box::new(BufReader::new(result))
-            } else {
-                Box::new(BufReader::new(GzDecoder::new(result)))
-            };
-            epg_wrapper.update_data(XmltvReader::new(reader));
-            println!("updated epg data");
-        } else {
-            println!("already up to date");
-        }
-        t
-    }
-
-    let app = Arc::new(EpgSqlServer::new(&db_path));
-
-    let _child = thread::spawn({
-        let app = app.clone();
-        move || {
-            let mut last_changed = HttpDate::from(UNIX_EPOCH);
-            loop {
-                let result = panic::catch_unwind(|| update_epg(last_changed, &app, &url));
-                match result {
-                    Ok(t) => last_changed = t,
-                    Err(_) => println!("Panic in update_epg!"),
-                }
-                use rand::Rng;
-                let minute = rand::thread_rng().gen_range(0, 30);
-                thread::sleep(time::Duration::from_secs((3 * 60 + minute) * 60));
-            }
-        }
-    });
-
+fn create_router() -> Router {
     use iron::mime::Mime;
-    use std::path::Path;
-
-    let mut router = Router::new();
-    router.get("/epg_day", get_epg_day, "get_epg_day");
-    router.get("/epg_list", get_epg_list, "get_epg_list");
-    router.get("/programs.html", get_epg_html, "get_epg_html");
-    router.get("/channels", get_channel_ids, "get_channel_ids");
-    router.get("/channels.html", get_channels_html, "get_channels_html");
-    router.get("/channels_names", get_channel_names, "get_channel_names");
-
-    let mut mount = Mount::new();
-    mount.mount("/", router);
-    mount.mount("static/", Static::new(Path::new("static/")));
-    mount.mount("/m3u", PlaylistModel::new());
-    mount.mount("/m3u/static/", Static::new(Path::new("static/")));
-    let mut chain = Chain::new(mount);
-
-    // chain.link_after(mount);
-    // FIXME: superfluous nested Arc
-    chain.link_before(persistent::Read::<EpgSqlServer>::one(app));
-    chain.link_before(Intercept::default());
 
     fn get_epg_day(req: &mut Request) -> IronResult<Response> {
         let data = req.get::<persistent::Read<EpgSqlServer>>().unwrap();
@@ -481,6 +332,155 @@ fn main() {
             },
         )))
     }
+
+    let mut router = Router::new();
+    router.get("/epg_day", get_epg_day, "get_epg_day");
+    router.get("/epg_list", get_epg_list, "get_epg_list");
+    router.get("/programs.html", get_epg_html, "get_epg_html");
+    router.get("/channels", get_channel_ids, "get_channel_ids");
+    router.get("/channels.html", get_channels_html, "get_channels_html");
+    router.get("/channels_names", get_channel_names, "get_channel_names");
+    router
+}
+
+fn main() {
+    const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+    let args = clap::App::new("epg server")
+        .version(VERSION)
+        .author("technic93")
+        .about("Serves xmltv in json format")
+        .arg(
+            clap::Arg::with_name("port")
+                .long("port")
+                .env("APP_PORT")
+                .takes_value(true)
+                .default_value("3000")
+                .help("The port to listen to"),
+        )
+        .arg(
+            clap::Arg::with_name("url")
+                .long("url")
+                .env("APP_URL")
+                .takes_value(true)
+                .help("xmltv download url"),
+        )
+        .arg(
+            clap::Arg::with_name("db_path")
+                .long("db")
+                .env("APP_DB")
+                .takes_value(true)
+                .default_value("./epg.db")
+                .help("path to sqlite database"),
+        )
+        .get_matches();
+
+    let port = {
+        let s = args.value_of("port").unwrap();
+        s.parse::<i32>().unwrap_or_else(|e| {
+            eprintln!("Bad port argument '{}', {}.", s, e);
+            std::process::exit(1);
+        })
+    };
+
+    let url = args
+        .value_of("url")
+        .unwrap_or_else(|| {
+            eprintln!("Missing url argument");
+            std::process::exit(1);
+        })
+        .to_owned();
+
+    let db_path = {
+        fn terminate<T>(e: Box<dyn Error>) -> T {
+            eprintln!("Invalid path to database: {}", e);
+            std::process::exit(1);
+        };
+        let path = Path::new(args.value_of("db_path").unwrap());
+        if !path.is_file() {
+            println!("Creating empty database file");
+            std::fs::File::create(path)
+                .map_err(|e| e.into())
+                .unwrap_or_else(terminate);
+        }
+        std::fs::canonicalize(path)
+            .map_err(|e| e.into())
+            .unwrap_or_else(terminate)
+            .to_str()
+            .map(|s| s.to_owned())
+            .ok_or("non utf-8".into())
+            .unwrap_or_else(terminate)
+    };
+
+    println!("epg server starting");
+
+    fn update_epg(last_t: HttpDate, epg_wrapper: &Arc<EpgSqlServer>, url: &str) -> HttpDate {
+        println!("check for new epg");
+        let client = reqwest::Client::builder().build().unwrap();
+        let result = client.get(url).send().unwrap();
+        let t = result
+            .headers()
+            .get(LAST_MODIFIED)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| HttpDate::from_str(s).ok())
+            .unwrap_or(HttpDate::from(SystemTime::now()));
+        println!("last modified {}", t);
+        if t > last_t {
+            println!("loading xmltv");
+            let mut zipped = true;
+            use mime::Mime;
+            if let Some(content_type) = result
+                .headers()
+                .get(CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| Mime::from_str(s).ok())
+            {
+                println!("{:?}", content_type);
+                match (content_type.type_(), content_type.subtype()) {
+                    (_, mime::XML) => zipped = false,
+                    _ => {}
+                }
+            }
+            let reader: Box<dyn BufRead> = if !zipped {
+                Box::new(BufReader::new(result))
+            } else {
+                Box::new(BufReader::new(GzDecoder::new(result)))
+            };
+            epg_wrapper.update_data(XmltvReader::new(reader));
+            println!("updated epg data");
+        } else {
+            println!("already up to date");
+        }
+        t
+    }
+
+    let app = Arc::new(EpgSqlServer::new(&db_path));
+
+    let _child = thread::spawn({
+        let app = app.clone();
+        move || {
+            let mut last_changed = HttpDate::from(UNIX_EPOCH);
+            loop {
+                let result = panic::catch_unwind(|| update_epg(last_changed, &app, &url));
+                match result {
+                    Ok(t) => last_changed = t,
+                    Err(_) => println!("Panic in update_epg!"),
+                }
+                use rand::Rng;
+                let minute = rand::thread_rng().gen_range(0, 30);
+                thread::sleep(time::Duration::from_secs((3 * 60 + minute) * 60));
+            }
+        }
+    });
+
+    let mut mount = Mount::new();
+    mount.mount("/", create_router());
+    mount.mount("static/", Static::new(Path::new("static/")));
+    mount.mount("/m3u", PlaylistModel::new());
+    mount.mount("/m3u/static/", Static::new(Path::new("static/")));
+    let mut chain = Chain::new(mount);
+    chain.link_before(persistent::Read::<EpgSqlServer>::one(app));
+    chain.link_before(Intercept::default());
 
     Iron::new(chain)
         .http(format!("localhost:{}", port))
