@@ -34,12 +34,6 @@ use db::ProgramsDatabase;
 use epg::{ChannelInfo, EpgNow, Program};
 use xmltv::XmltvReader;
 
-/// Use this function until #54361 becomes stable
-fn time_elapsed(t: SystemTime) -> f64 {
-    let d = t.elapsed().unwrap();
-    d.as_secs() as f64 + d.subsec_micros() as f64 * 1e-6
-}
-
 struct LiveCache {
     data: Vec<EpgNow>,
     begin: i64,
@@ -115,7 +109,10 @@ impl EpgSqlServer {
         self.db.load_xmltv(xmltv).unwrap();
         self.cache.write().unwrap().clear();
 
-        println!("Database transactions took {}s", time_elapsed(t));
+        println!(
+            "Database transactions took {}s",
+            t.elapsed().unwrap().as_secs_f32()
+        );
     }
 
     fn get_epg_day(&self, id: i64, date: chrono::Date<Utc>) -> Option<Vec<Program>> {
@@ -425,10 +422,9 @@ fn main() {
 
         let t = SystemTime::now();
         let out = data.get_epg_list(time);
-        let d = t.elapsed().unwrap();
         println!(
             "req processed in {} sec",
-            d.as_secs() as f64 + d.subsec_nanos() as f64 * 1e-9
+            t.elapsed().unwrap().as_secs_f32()
         );
         Ok(Response::with((
             status::Ok,
