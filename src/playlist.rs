@@ -2,6 +2,7 @@ use crate::m3u;
 use crate::m3u::Playlist;
 use crate::m3u::PlaylistWriter;
 use crate::name_match::VecMatcher;
+use crate::utils::bad_request;
 use crate::EpgSqlServer;
 use askama::Template;
 use io::Read;
@@ -115,11 +116,6 @@ fn replace_tvg<R: io::BufRead>(
         result.push(&entry);
     }
     Ok(result.into())
-}
-
-fn bad_request<E: 'static + std::error::Error + Send>(error: E) -> IronError {
-    let m = (status::BadRequest, error.description().to_string());
-    IronError::new(error, m)
 }
 
 #[derive(Debug)]

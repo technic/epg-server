@@ -28,10 +28,12 @@ mod epg;
 mod m3u;
 mod name_match;
 mod playlist;
+mod utils;
 mod xmltv;
 
 use db::ProgramsDatabase;
 use epg::{ChannelInfo, EpgNow, Program};
+use utils::bad_request;
 use xmltv::XmltvReader;
 
 struct LiveCache {
@@ -173,11 +175,6 @@ impl EpgSqlServer {
 
 impl iron::typemap::Key for EpgSqlServer {
     type Value = EpgSqlServer;
-}
-
-fn bad_request<E: 'static + Error + Send>(error: E) -> IronError {
-    let m = (status::BadRequest, error.description().to_string());
-    IronError::new(error, m)
 }
 
 fn main() {
