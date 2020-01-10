@@ -333,6 +333,13 @@ fn create_router() -> Router {
         )))
     }
 
+    fn redirect_to_channels_html(req: &mut Request) -> IronResult<Response> {
+        Ok(Response::with((
+            status::Found,
+            iron::modifiers::Redirect(router::url_for!(req, "get_channels_html")),
+        )))
+    }
+
     let mut router = Router::new();
     router.get("/epg_day", get_epg_day, "get_epg_day");
     router.get("/epg_list", get_epg_list, "get_epg_list");
@@ -340,6 +347,7 @@ fn create_router() -> Router {
     router.get("/channels", get_channel_ids, "get_channel_ids");
     router.get("/channels.html", get_channels_html, "get_channels_html");
     router.get("/channels_names", get_channel_names, "get_channel_names");
+    router.get("/", redirect_to_channels_html, "home");
     router
 }
 
