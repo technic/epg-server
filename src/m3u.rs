@@ -86,11 +86,11 @@ impl Entry {
     }
 
     pub fn write_to(&self, out: &mut String) {
+        out.push_str(&self.info);
         if !self.group.is_empty() {
             out.push_str(&self.group);
             out.push('\n');
         }
-        out.push_str(&self.info);
         out.push('\n');
         out.push_str(&self.url);
         out.push('\n');
