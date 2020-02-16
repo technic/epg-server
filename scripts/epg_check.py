@@ -36,3 +36,5 @@ if __name__ == "__main__":
     _check_epg('http://iptvdream.zapto.org/epg-1ott')
     _check_epg('http://iptvdream.zapto.org/epg-shara-tv')
     _check_epg('http://iptvdream.zapto.org/epg-sharovoz')
+    _check_epg('http://iptvdream.zapto.org/epg-itvlive')
+    _check_epg('http://iptvdream.zapto.org/epg-fox')
