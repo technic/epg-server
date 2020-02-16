@@ -446,7 +446,13 @@ fn main() {
                 println!("{:?}", content_type);
                 match (content_type.type_(), content_type.subtype()) {
                     (_, mime::XML) => zipped = false,
-                    _ => {}
+                    _ => {
+                        // hack to support urls with wrong content-type
+                        if url.ends_with("xmltv") {
+                            println!("url ends with 'xmltv' assuming unzipped xml content");
+                            zipped = false;
+                        }
+                    }
                 }
             }
             let reader: Box<dyn BufRead> = if !zipped {
