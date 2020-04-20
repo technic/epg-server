@@ -328,6 +328,12 @@ mod test {
         assert_eq!(playlist[3].group(), "Hilarious");
         assert_eq!(playlist[3].tvg_id(), "");
         assert_eq!(playlist[3].tvg_logo(), "");
+
+        let mut writer = PlaylistWriter::new();
+        for elem in playlist.iter() {
+            writer.push(elem);
+        }
+        assert_eq!(String::from(writer), data);
     }
 
     #[test]
