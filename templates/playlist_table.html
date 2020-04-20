@@ -25,14 +25,16 @@
       <td class="icon-col"><img src="{{ c.entry.tvg_logo() }}" /></td>
       <td class="name-col">{{ c.entry.name() }}</td>
       <td class="alias-col">{{ c.name }}
-        <a class="btn btn-sm" href="../programs.html?id={{ c.entry.tvg_id() }}" target="_blank">
+        {% if !c.name.is_empty() -%}
+        <a class="btn btn-sm" href="../programs.html?id={{ c.entry.tvg_id() }}" target="_blank" title="EPG">
           <i class="fas fa-info-circle"></i>
         </a>
+        {% endif -%}
       </td>
       <td class="button-col">
-        <button type="button" class="btn btn-primary btn-sm"><i class="fas fa-edit"></i></button>
+        <button type="button" class="btn btn-primary btn-sm" title="Select"><i class="fas fa-edit"></i></button>
         {% if rc == "table-warning" %}
-        <button type="button" class="btn btn-secondary btn-sm"><i class="far fa-check-circle"></i></button>
+        <button type="button" class="btn btn-secondary btn-sm" title="Mark OK"><i class="far fa-check-circle"></i></button>
         {% endif %}
       </td>
     </tr>
