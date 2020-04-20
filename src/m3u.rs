@@ -257,9 +257,9 @@ impl PlaylistWriter {
     }
 }
 
-impl Into<String> for PlaylistWriter {
-    fn into(self) -> String {
-        self.storage
+impl From<PlaylistWriter> for String {
+    fn from(writer: PlaylistWriter) -> String {
+        writer.storage
     }
 }
 
