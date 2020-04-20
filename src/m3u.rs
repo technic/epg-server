@@ -272,6 +272,7 @@ mod test {
 
     #[test]
     fn ok() {
+        // Empty line is part of the test!
         let data = indoc!(
             r#"#EXTM3U
         #EXTINF:0 tvg-logo="http://icons.org/qqq.png" tvg-id="ch1",Channel 1
@@ -333,7 +334,7 @@ mod test {
         for elem in playlist.iter() {
             writer.push(elem);
         }
-        assert_eq!(String::from(writer), data);
+        assert_eq!(String::from(writer), data.replace("\n\n", "\n"));
     }
 
     #[test]
