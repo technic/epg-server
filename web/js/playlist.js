@@ -91,7 +91,8 @@ $(document).ready(function () {
         var list = $('#suggestions');
         list.empty();
         for (var item of result['data']) {
-            list.append($("<li>").addClass("list-group-item").addClass("list-group-item-action").text(item));
+            list.append($("<li>").addClass("list-group-item").addClass("list-group-item-action").text(item['name'])
+                .append(`<a class="btn btn-sm" href="../programs.html?id=${item['alias']}" target="_blank"><i class="fas fa-info-circle"></i></a>`));
         }
         $('#setButton').attr('disabled', true);
         var modal = $('#listDialog');
@@ -107,6 +108,10 @@ $(document).ready(function () {
         $(this).addClass("active").siblings().removeClass("active");
         $('#setButton').attr('disabled', false);
     });
+
+    $("#suggestions").on("click", "a", function (e) {
+        e.stopPropagation();
+    })
 
     $('#setButton').click(function () {
         const text = $("#suggestions").find('li.active').text();

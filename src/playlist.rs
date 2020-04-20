@@ -30,6 +30,12 @@ struct ProcessedItem {
     sim: f32,
 }
 
+#[derive(Debug, Serialize)]
+struct SearchResultItem {
+    name: String,
+    alias: String,
+}
+
 fn process<R: io::BufRead>(
     buf: R,
     server: &EpgSqlServer,
@@ -75,7 +81,7 @@ fn process<R: io::BufRead>(
 }
 
 /// Searches channels with similar name in the database
-fn find(name: &str, server: &EpgSqlServer) -> Vec<String> {
+fn find(name: &str, server: &EpgSqlServer) -> Vec<SearchResultItem> {
     let channels = server
         .get_channels()
         .into_iter()
@@ -85,7 +91,13 @@ fn find(name: &str, server: &EpgSqlServer) -> Vec<String> {
     let mut corpus = VecMatcher::new(&dataset, 2);
     let ret = corpus.search(name, SIM_POSSIBLE, 10);
     ret.iter()
-        .map(|(index, _sim)| channels[*index].name.clone())
+        .map(|(index, _sim)| {
+            let c = &channels[*index];
+            SearchResultItem {
+                name: c.name.clone(),
+                alias: c.alias.clone(),
+            }
+        })
         .collect()
 }
 
@@ -239,7 +251,7 @@ impl PlaylistModel {
 
         #[derive(Serialize)]
         struct Json {
-            data: Vec<String>,
+            data: Vec<SearchResultItem>,
         }
         let out = serde_json::to_string(&Json {
             data: dbg!(find(name, &server)),
