@@ -24,7 +24,11 @@
     <tr class="{{ rc }}" id="row-{{ loop.index }}">
       <td class="icon-col"><img src="{{ c.entry.tvg_logo() }}" /></td>
       <td class="name-col">{{ c.entry.name() }}</td>
-      <td class="alias-col">{{ c.name }}</td>
+      <td class="alias-col">{{ c.name }}
+        <a class="btn btn-sm" href="../programs.html?id={{ c.entry.tvg_id() }}" target="_blank">
+          <i class="fas fa-info-circle"></i>
+        </a>
+      </td>
       <td class="button-col">
         <button type="button" class="btn btn-primary btn-sm"><i class="fas fa-edit"></i></button>
         {% if rc == "table-warning" %}
