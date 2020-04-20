@@ -5,6 +5,11 @@ import requests
 
 def check_epg(url):
     ts = int((datetime.now() - datetime(1970, 1, 1)).total_seconds())
+
+    r = requests.get("%s/channels_names" % url)
+    data = r.json()['data']
+    total_channels = len(data)
+
     print('Getting epg from', url, "at", ts)
     r = requests.get('%s/epg_list?time=%d' % (url, ts))
     data = r.json()
@@ -21,7 +26,7 @@ def check_epg(url):
 
     epg_list = list(map(f, data['data']))
     coverage = float(epg_list.count(True)) / len(epg_list) * 100
-    print("Epg present on %.2f %% of %d channels" % (coverage, len(epg_list)))
+    print("Epg present on %.2f %% of %d channels from %d total" % (coverage, len(epg_list), total_channels))
     # print(egpList)
 
 
