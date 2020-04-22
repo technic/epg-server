@@ -1,7 +1,6 @@
 .idea/
 .vs/
 .vscode/
-Cargo.lock
 /target/
 **/*.rs.bk
 admin/
