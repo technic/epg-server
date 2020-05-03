@@ -2,56 +2,26 @@ use crate::epg::{ChannelInfo, EpgNow, Program};
 use crate::xmltv::XmltvItem;
 use crate::xmltv::XmltvReader;
 use chrono::prelude::*;
-use error_chain::ChainedError;
 use failure::Fail;
-use rusqlite::types::ToSql;
-use rusqlite::{Connection, Result, NO_PARAMS};
+use mysql::prelude::*;
+use mysql::{params, Opts, Pool, PooledConn as Connection, Result as DBResult};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::error::Error;
+use std::fmt;
 use std::io::BufRead;
-use std::path::PathBuf;
-use std::{fmt, fs};
+use std::time::SystemTime;
 
 pub struct ProgramsDatabase {
-    file: String,
+    pool: Pool,
 }
 
 impl ProgramsDatabase {
-    pub fn open(file: &str) -> Result<Self> {
-        let conn = Connection::open(&file)?;
-        conn.execute_batch("pragma journal_mode=WAL")?;
-        conn.execute_batch("pragma cache_size=10000")?;
-        conn.execute(
-            "create table if not exists channels \
-             (id integer primary key, alias text unique, name text, icon_url text)",
-            NO_PARAMS,
-        )?;
-        conn.execute(
-            "create table if not exists programs (
-             id integer primary key autoincrement,
-             channel integer,
-             begin integer,
-             end integer,
-             title text,
-             description text
-             )",
-            NO_PARAMS,
-        )?;
-        conn.execute(
-            "create table if not exists programs1 (
-             id integer primary key autoincrement,
-             channel integer,
-             begin integer,
-             end integer,
-             title text,
-             description text
-             )",
-            NO_PARAMS,
-        )?;
-        let db = Self {
-            file: file.to_string(),
-        };
+    pub fn open(url: &str) -> DBResult<Self> {
+        let opts = Opts::from(url);
+        let pool = Pool::new(opts.clone())?;
+
+        let db = Self { pool };
 
         #[derive(Debug)]
         struct MigrantError {
@@ -70,7 +40,7 @@ impl ProgramsDatabase {
             }
         }
 
-        db.run_migrations()
+        db.run_migrations(&opts)
             .or_else(|e| {
                 if e.is_migration_complete() {
                     println!("All migrations complete!");
@@ -79,19 +49,34 @@ impl ProgramsDatabase {
                     Err(e)
                 }
             })
-            .map_err(|e| {
-                println!("Migration failed: {}", e.display_chain());
-                rusqlite::Error::UserFunctionError(Box::new(MigrantError {
-                    message: e.description().to_string(),
-                }))
-            })?;
+            .unwrap();
+        // .map_err(|e| {
+        //     println!("Migration failed: {}", e.display_chain());
+        //     // rusqlite::Error::UserFunctionError(Box::new(MigrantError {
+        //     //     message: e.description().to_string(),
+        //     // }))
+        //     // FIXME!!!!
+        //     panic!(e.description());
+        // })?;
         Ok(db)
     }
 
-    fn run_migrations(&self) -> std::result::Result<(), migrant_lib::errors::Error> {
-        let settings = migrant_lib::Settings::configure_sqlite()
-            .database_path(fs::canonicalize(PathBuf::from(&self.file)).unwrap())?
-            .build()?;
+    fn run_migrations(&self, opts: &Opts) -> std::result::Result<(), migrant_lib::errors::Error> {
+        let mut builder = migrant_lib::Settings::configure_mysql();
+        builder
+            .database_host(&opts.get_ip_or_hostname())
+            .database_port(opts.get_tcp_port());
+        if let Some(name) = opts.get_db_name() {
+            builder.database_name(name);
+        }
+        if let Some(user) = opts.get_user() {
+            builder.database_user(user);
+        }
+        if let Some(pass) = opts.get_pass() {
+            builder.database_password(pass);
+        }
+        let settings = builder.build()?;
+
         let mut config = migrant_lib::Config::with_settings(&settings);
         config.setup()?;
         config.use_cli_compatible_tags(true);
@@ -103,7 +88,7 @@ impl ProgramsDatabase {
                     .boxed()
             };
         }
-        config.use_migrations(&[make_migration!("20190325100907_channel-alias")])?;
+        config.use_migrations(&[make_migration!("20200503211649_create")])?;
         let config = config.reload()?;
         migrant_lib::list(&config)?;
         println!("Applying migrations ...");
@@ -116,12 +101,13 @@ impl ProgramsDatabase {
         Ok(())
     }
 
-    pub fn load_xmltv<R: BufRead>(&self, xmltv: XmltvReader<R>) -> Result<()> {
-        let mut conn = Connection::open(&self.file)?;
+    pub fn load_xmltv<R: BufRead>(&self, xmltv: XmltvReader<R>) -> DBResult<()> {
+        let mut conn = self.pool.get_conn()?;
+        println!("{} Start", chrono::Local::now());
 
         // Make sure that temporary storage is clean
-        conn.execute("drop index if exists p1_channel", NO_PARAMS)?;
-        conn.execute("delete from programs1", NO_PARAMS)?;
+        conn.query_drop("drop index if exists p1_channel on programs1")?;
+        conn.query_drop("delete from programs1")?;
 
         let mut ids: HashMap<String, i64> = self
             .get_channels()?
@@ -132,10 +118,19 @@ impl ProgramsDatabase {
         let mut ins_c = 0;
         let mut ins_p = 0;
         let mut result = Ok(());
+        print!("{} ", chrono::Local::now());
         println!("Parsing XMLTV entries into database ...");
         // Convert xmltv into sql table
+        conn.query_drop("LOCK TABLES `programs1` WRITE")?;
+        let mut v = Vec::new();
         {
-            let tx = conn.transaction()?;
+            let mut tx = conn.start_transaction(mysql::TxOpts::default())?;
+
+            let stmt = tx.prep(
+                "insert into programs1 (channel, begin, end, title, description) \
+                 values (?, ?, ?, ?, ?)",
+            )?;
+
             for item in xmltv {
                 match item {
                     Ok(XmltvItem::Channel(channel)) => {
@@ -144,7 +139,7 @@ impl ProgramsDatabase {
                                 // Chanel with this alias already exists
                                 let &id = entry.get();
                                 update_channel(
-                                    &tx,
+                                    &mut tx,
                                     id,
                                     entry.key(),
                                     &channel.name,
@@ -155,7 +150,7 @@ impl ProgramsDatabase {
                                 // First try use alias as an integer id
                                 if let Ok(id) = entry.key().parse::<i64>() {
                                     update_channel(
-                                        &tx,
+                                        &mut tx,
                                         id,
                                         entry.key(),
                                         &channel.name,
@@ -165,7 +160,7 @@ impl ProgramsDatabase {
                                 } else {
                                     // Insert new channel and assign it new id
                                     let id = insert_channel(
-                                        &tx,
+                                        &mut tx,
                                         entry.key(),
                                         &channel.name,
                                         &channel.icon_url,
@@ -178,22 +173,63 @@ impl ProgramsDatabase {
                     }
                     Ok(XmltvItem::Program((alias, program))) => {
                         if let Some(&id) = ids.get(&alias) {
-                            insert_program(&tx, id, &program)?;
-                            ins_p += 1;
+                            // insert_program(&mut tx, id, &program)?;
+                            // tx.exec_drop(
+                            //     stmt.clone(),
+                            //     (
+                            //         id,
+                            //         program.begin,
+                            //         program.end,
+                            //         &program.title,
+                            //         &program.description,
+                            //     ),
+                            // )?;
+                            // ins_p += 1;
+                            v.push((id, program));
                         } else {
                             eprintln!("Skip program for unknown channel {}", alias);
                         }
                     }
                     Err(e) => {
                         // Process all parsed items and return Error in the end
-                        result = Err(rusqlite::Error::UserFunctionError(Box::new(e.compat())));
+                        // result = Err(e);
+                        // result = Err(rusqlite::Error::UserFunctionError(Box::new(e.compat())));
+                        panic!(e.compat());
                         break;
                     }
                 }
+                if ins_p % 1000 == 1 {
+                    print!("{} ", chrono::Local::now());
+                    println!("{}", ins_p);
+                }
             }
+
+            println!("{} in vec", chrono::Local::now());
+            // tx.query_drop("set autocommit=0")?;
+            tx.exec_batch(
+                stmt,
+                v.iter().map(|(id, program)| {
+                    if ins_p % 1000 == 1 {
+                        print!("{} ", chrono::Local::now());
+                        println!("{}", ins_p);
+                    }
+                    ins_p += 1;
+                    (
+                        id,
+                        program.begin,
+                        program.end,
+                        &program.title,
+                        &program.description,
+                    )
+                }),
+            )?;
+
+            println!("{} parsed", chrono::Local::now());
             tx.commit()?;
+            // conn.query_drop("set autocommit=1")?;
         }
 
+        print!("{} ", chrono::Local::now());
         println!(
             "Loaded {} channels and {} programs into sql database",
             ins_c, ins_p
@@ -206,56 +242,78 @@ impl ProgramsDatabase {
         append_programs(&mut conn)?;
         // Clean up obsolete channels
         clear_channels(&mut conn)?;
+        conn.query_drop("UNLOCK TABLES")?;
         result
     }
 
-    pub fn get_channels(&self) -> Result<Vec<(i64, ChannelInfo)>> {
-        let conn = Connection::open(&self.file)?;
-        let mut stmt = conn.prepare("select id, alias, name, icon_url from channels")?;
-        let it = stmt
-            .query_map(NO_PARAMS, |row| {
-                Ok((
-                    {
-                        let id: i64 = row.get(0)?;
-                        id
-                    },
+    pub fn get_channels(&self) -> DBResult<Vec<(i64, ChannelInfo)>> {
+        let mut conn = self.pool.get_conn()?;
+        let result = conn.query_map(
+            "select id, alias, name, icon_url from channels",
+            |(id, alias, name, icon_url)| {
+                (
+                    id,
                     ChannelInfo {
-                        alias: row.get(1)?,
-                        name: row.get(2)?,
-                        icon_url: row.get(3)?,
+                        alias,
+                        name,
+                        icon_url,
                     },
-                ))
-            })?
-            .filter_map(|item| item.ok());
-        Ok(it.collect::<Vec<_>>())
+                )
+            },
+        )?;
+        Ok(result)
+        // let it = conn
+        //     .exec_iter(stmt, ())?
+        //     .map(|res| {
+        //         res.and_then(|row| {
+        //             (
+        //                 {
+        //                     let id: i64 = row.get(0)?;
+        //                     id
+        //                 },
+        //                 ChannelInfo {
+        //                     alias: row.get(1)?,
+        //                     name: row.get(2)?,
+        //                     icon_url: row.get(3)?,
+        //                 },
+        //             )
+        //         })
+        //     })
+        //     .filter_map(|item| item.ok());
+        // Ok(it.collect::<Vec<_>>())
     }
 
-    pub fn get_at(&self, timestamp: i64, count: i64) -> Result<Vec<EpgNow>> {
-        let conn = Connection::open(&self.file)?;
-        let mut stmt = conn.prepare(
+    pub fn get_at(&self, timestamp: i64, count: i64) -> DBResult<Vec<EpgNow>> {
+        let mut conn = self.pool.get_conn()?;
+        let stmt = conn.prep(
             "select
                 channels.id,
                 programs.begin, programs.end, programs.title, programs.description
              from channels
              join programs on programs.id in
              (select programs.id from programs where
-              programs.channel=channels.id AND programs.end > ?1 order by programs.end limit ?2)",
+              programs.channel=channels.id AND programs.end > :ts order by programs.end limit :count)",
         )?;
 
         let mut hash: HashMap<i64, EpgNow> = HashMap::new();
 
-        let it = stmt.query_map(&[&timestamp, &count], |row| {
-            let id: i64 = row.get(0)?;
-            let program = Program {
-                begin: row.get(1)?,
-                end: row.get(2)?,
-                title: row.get(3)?,
-                description: row.get(4)?,
-            };
-            Ok((id, program))
-        })?;
+        let it = conn.exec_map(
+            stmt,
+            params! {"ts"=> timestamp, count},
+            |(id, begin, end, title, description)| {
+                (
+                    id,
+                    Program {
+                        begin,
+                        end,
+                        title,
+                        description,
+                    },
+                )
+            },
+        )?;
 
-        for (id, program) in it.filter_map(|item| item.ok()) {
+        for (id, program) in it.into_iter() {
             hash.entry(id)
                 .or_insert(EpgNow {
                     channel_id: id,
@@ -267,163 +325,150 @@ impl ProgramsDatabase {
         Ok(hash.into_iter().map(|(_id, value)| value).collect())
     }
 
-    pub fn get_range(&self, id: i64, from: i64, to: i64) -> Result<Vec<Program>> {
-        let conn = Connection::open(&self.file)?;
-        let mut stmt = conn.prepare(
+    pub fn get_range(&self, id: i64, from: i64, to: i64) -> DBResult<Vec<Program>> {
+        let mut conn = self.pool.get_conn()?;
+        let stmt = conn.prep(
             "select programs.begin, programs.end, programs.title, programs.description
          from programs where
-         programs.channel = ?1 and programs.begin >= ?2 and programs.begin < ?3",
+         programs.channel = :id and programs.begin >= :from and programs.begin < :to",
         )?;
-        let it = stmt
-            .query_map(&[&id, &from, &to], |row| {
-                Ok(Program {
-                    begin: row.get(0)?,
-                    end: row.get(1)?,
-                    title: row.get(2)?,
-                    description: row.get(3)?,
-                })
-            })?
-            .filter_map(|item| item.ok());
-        Ok(it.collect::<Vec<_>>())
+        let res = conn.exec_map(
+            stmt,
+            params! { id, from, to },
+            |(begin, end, title, description)| Program {
+                begin,
+                end,
+                title,
+                description,
+            },
+        )?;
+        Ok(res)
     }
 
-    pub fn delete_before(&self, timestamp: i64) -> Result<()> {
-        println!("Removing programs before t={} from sqlite ...", timestamp);
-        let conn = Connection::open(&self.file)?;
-        let count = conn.execute(
-            "delete from programs where programs.end < ?1",
-            &[&timestamp],
-        )?;
-        println!("Deleted {} rows.", count);
+    pub fn delete_before(&self, timestamp: i64) -> DBResult<()> {
+        print!("{} ", chrono::Local::now());
+        println!("Removing programs before t={} from database ...", timestamp);
+        let mut conn = self.pool.get_conn()?;
+        conn.exec_drop("delete from programs where programs.end < ?", (timestamp,))?;
+        print!("{} ", chrono::Local::now());
+        println!("Deleted {} rows.", conn.affected_rows());
         Ok(())
     }
 }
 
 /// Insert channel into the database return assigned id
-fn insert_channel(conn: &Connection, alias: &str, name: &str, icon_url: &str) -> Result<i64> {
-    let mut stmt =
-        conn.prepare_cached("insert into channels (alias, name, icon_url) values (?1, ?2, ?3)")?;
-    let row_id = stmt.insert(&[
-        &alias as &dyn ToSql,
-        &name as &dyn ToSql,
-        &icon_url as &dyn ToSql,
-    ])?;
-    Ok(row_id)
+fn insert_channel<Q: Queryable>(
+    conn: &mut Q,
+    alias: &str,
+    name: &str,
+    icon_url: &str,
+) -> DBResult<i64> {
+    let stmt = conn.prep("insert into channels (alias, name, icon_url) values (?, ?, ?)")?;
+    let res = conn.exec_iter(stmt, (alias, name, icon_url))?;
+    let row_id = res.last_insert_id().unwrap();
+    Ok(row_id as i64)
 }
 
 /// Insert or replace channel data in the database
-fn update_channel(
-    conn: &Connection,
+fn update_channel<Q: Queryable>(
+    conn: &mut Q,
     id: i64,
     alias: &str,
     name: &str,
     icon_url: &str,
-) -> Result<()> {
-    let mut stmt = conn.prepare_cached(
-        "insert or replace into channels (id, alias, name, icon_url) values (?1, ?2, ?3, ?4)",
+) -> DBResult<()> {
+    let stmt = conn.prep(
+        "insert into channels (id, alias, name, icon_url) values (:id, :alias, :name, :icon_url)
+         on duplicate key update alias=:alias, name=:name, icon_url=:icon_url",
     )?;
-    let row_id = stmt.insert(&[
-        &id,
-        &alias as &dyn ToSql,
-        &name as &dyn ToSql,
-        &icon_url as &dyn ToSql,
-    ])?;
-    assert_eq!(row_id, id);
-    Ok(())
+    conn.exec_drop(stmt, params! {id, alias, name, icon_url})
 }
 
-fn insert_program(conn: &Connection, channel_id: i64, program: &Program) -> Result<()> {
-    let mut stmt = conn.prepare_cached(
+fn insert_program<Q: Queryable>(conn: &mut Q, channel_id: i64, program: &Program) -> DBResult<()> {
+    let stmt = conn.prep(
         "insert into programs1 (channel, begin, end, title, description) \
-         values (?1, ?2, ?3, ?4, ?5)",
+         values (?, ?, ?, ?, ?)",
     )?;
-    stmt.execute(&[
-        &channel_id,
-        &program.begin,
-        &program.end,
-        &program.title as &dyn ToSql,
-        &program.description as &dyn ToSql,
-    ])?;
+    conn.exec_drop(
+        stmt,
+        (
+            channel_id,
+            program.begin,
+            program.end,
+            &program.title,
+            &program.description,
+        ),
+    )?;
     Ok(())
 }
 
-fn create_indexes(conn: &Connection) -> Result<()> {
-    conn.execute("create index channel on programs (channel)", NO_PARAMS)?;
-    conn.execute(
-        "create index channel_begin on programs (channel, begin)",
-        NO_PARAMS,
-    )?;
-    conn.execute(
-        "create index channel_end on programs (channel, end)",
-        NO_PARAMS,
-    )?;
-
+fn create_indexes<Q: Queryable>(conn: &mut Q) -> DBResult<()> {
+    // conn.query_drop("create index channel on programs (channel)")?;
+    conn.query_drop("create index channel_begin on programs (channel, begin)")?;
+    conn.query_drop("create index channel_end on programs (channel, end)")?;
     Ok(())
 }
 
-fn drop_indexes(conn: &Connection) -> Result<()> {
-    conn.execute("drop index if exists channel", NO_PARAMS)?;
-    conn.execute("drop index if exists channel_begin", NO_PARAMS)?;
-    conn.execute("drop index if exists channel_end", NO_PARAMS)?;
+fn drop_indexes<Q: Queryable>(conn: &mut Q) -> DBResult<()> {
+    // conn.query_drop("drop index if exists channel on programs")?;
+    conn.query_drop("drop index if exists channel_begin on programs")?;
+    conn.query_drop("drop index if exists channel_end on programs")?;
     Ok(())
 }
 
-fn append_programs(conn: &mut Connection) -> Result<()> {
-    conn.execute("create index p1_channel on programs1 (channel)", NO_PARAMS)?;
+fn append_programs(conn: &mut Connection) -> DBResult<()> {
+    conn.query_drop("create index p1_channel on programs1 (channel)")?;
 
-    let channels = {
-        let mut stmt = conn.prepare("select distinct p1.channel from programs1 p1")?;
-        let it = stmt
-            .query_map(NO_PARAMS, |row| {
-                let c: Result<i64> = row.get(0);
-                c
-            })?
-            .filter_map(|item| item.ok());
-        it.collect::<Vec<_>>()
+    let channels: Vec<i64> = {
+        let stmt = conn.prep("select distinct p1.channel from programs1 p1")?;
+        conn.exec(stmt, ())?
     };
     {
         // Remove programs from database, which times conflict with new data
         let mut total = 0;
-        let tx = conn.transaction()?;
+        let mut tx = conn.start_transaction(mysql::TxOpts::default())?;
         {
-            let mut stmt = tx.prepare(
-                "delete from programs where programs.channel=?1 and
-                 programs.begin >= (select min(p1.begin) from programs1 p1 where p1.channel=?1)",
+            let stmt = tx.prep(
+                "delete from programs where programs.channel=:id and
+                 programs.begin >= (select min(p1.begin) from programs1 p1 where p1.channel=:id)",
             )?;
             for id in channels.iter() {
-                let count = stmt.execute(&[&id])?;
-                total += count;
+                tx.exec_drop(stmt.clone(), params! {id})?;
+                total += tx.affected_rows();
             }
         }
+        print!("{} ", chrono::Local::now());
         println!("Deleted {} conflicting programs from sql database", total);
 
         // Drop indexes to speed up insert
-        drop_indexes(&tx)?;
+        drop_indexes(&mut tx)?;
         // Copy new data into the database
-        total = tx.execute(
+        tx.query_drop(
             "insert into programs (channel, begin, end, title, description)
-             select channel, \"begin\", \"end\", title, description from programs1",
-            NO_PARAMS,
+             select channel, begin, end, title, description from programs1",
         )?;
-        create_indexes(&tx)?;
-        println!("Inserted {} new programs", total);
-
+        print!("{} ", chrono::Local::now());
+        println!("Inserted {} new programs", tx.affected_rows());
+        create_indexes(&mut tx)?;
         tx.commit()?;
+        println!("{} committed", chrono::Local::now());
+
     }
 
-    conn.execute("delete from programs1", NO_PARAMS)?;
+    conn.query_drop("delete from programs1")?;
     Ok(())
 }
 
 /// Remove channels with no programs
-fn clear_channels(conn: &Connection) -> Result<()> {
+fn clear_channels(conn: &mut Connection) -> DBResult<()> {
+    print!("{} ", chrono::Local::now());
     println!("Clearing channels without epg data");
-    let count = conn.execute(
+    conn.query_drop(
         "delete from channels where \
          (select count(id) from programs where programs.channel=channels.id)=0",
-        NO_PARAMS,
     )?;
-    println!("Removed {} rows.", count);
+    print!("{} ", chrono::Local::now());
+    println!("Removed {} rows.", conn.affected_rows());
     Ok(())
 }
 
@@ -432,12 +477,11 @@ mod tests {
     use crate::db::*;
     use crate::epg::ChannelInfo;
     use crate::epg::Program;
-    use rusqlite::Connection;
     use std::fs;
     use std::path::Path;
 
     /// Wrapper for `update_channel`
-    fn update_channel_info(conn: &Connection, id: i64, channel: &ChannelInfo) -> Result<()> {
+    fn update_channel_info(conn: &mut Connection, id: i64, channel: &ChannelInfo) -> DBResult<()> {
         update_channel(conn, id, &channel.alias, &channel.name, &channel.icon_url)
     }
 
@@ -447,10 +491,10 @@ mod tests {
             fs::remove_file("test.db").unwrap();
         }
         let db = ProgramsDatabase::open("test.db").unwrap();
-        let mut conn = Connection::open(&db.file).unwrap();
+        let mut conn = db.pool.get_conn().unwrap();
 
         update_channel_info(
-            &conn,
+            &mut conn,
             1,
             &ChannelInfo {
                 alias: "c1".to_string(),
@@ -460,7 +504,7 @@ mod tests {
         )
         .unwrap();
         update_channel_info(
-            &conn,
+            &mut conn,
             2,
             &ChannelInfo {
                 alias: "c2".to_string(),
@@ -470,7 +514,7 @@ mod tests {
         )
         .unwrap();
         update_channel_info(
-            &conn,
+            &mut conn,
             3,
             &ChannelInfo {
                 alias: "c3".to_string(),
@@ -506,7 +550,7 @@ mod tests {
                 description: String::new(),
             },
         ] {
-            insert_program(&conn, 1, &program).unwrap();
+            insert_program(&mut conn, 1, &program).unwrap();
         }
         for program in vec![
             Program {
@@ -528,7 +572,7 @@ mod tests {
                 description: String::new(),
             },
         ] {
-            insert_program(&conn, 2, &program).unwrap();
+            insert_program(&mut conn, 2, &program).unwrap();
         }
         append_programs(&mut conn).unwrap();
 

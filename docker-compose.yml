@@ -1,0 +1,30 @@
+version: "3.3"
+
+services:
+  db:
+    image: mariadb
+    volumes:
+      - db_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      MYSQL_DATABASE: epg
+      MYSQL_USER: epg
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+    ports:
+      - 3306:3306
+
+  adminer:
+    image: adminer
+    ports:
+      - 8080:8080
+
+  rust:
+    image: rust
+    volumes:
+      - ./:/work
+      - build:/build
+    working_dir: /work
+
+volumes:
+  db_data: {}
+  build: {}

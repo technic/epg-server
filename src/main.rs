@@ -378,8 +378,7 @@ fn main() {
                 .long("db")
                 .env("APP_DB")
                 .takes_value(true)
-                .default_value("./epg.db")
-                .help("path to sqlite database"),
+                .help("url for mysql database"),
         )
         .get_matches();
 
@@ -399,26 +398,10 @@ fn main() {
         })
         .to_owned();
 
-    let db_path = {
-        fn terminate<T>(e: Box<dyn Error>) -> T {
-            eprintln!("Invalid path to database: {}", e);
-            std::process::exit(1);
-        };
-        let path = Path::new(args.value_of("db_path").unwrap());
-        if !path.is_file() {
-            println!("Creating empty database file");
-            std::fs::File::create(path)
-                .map_err(|e| e.into())
-                .unwrap_or_else(terminate);
-        }
-        std::fs::canonicalize(path)
-            .map_err(|e| e.into())
-            .unwrap_or_else(terminate)
-            .to_str()
-            .map(|s| s.to_owned())
-            .ok_or("non utf-8".into())
-            .unwrap_or_else(terminate)
-    };
+    let db_path = args.value_of("db_path").unwrap_or_else(|| {
+        eprintln!("Missing db_path argument");
+        std::process::exit(1);
+    });
 
     println!("epg server starting");
 
@@ -475,11 +458,12 @@ fn main() {
         move || {
             let mut last_changed = HttpDate::from(UNIX_EPOCH);
             loop {
-                let result = panic::catch_unwind(|| update_epg(last_changed, &app, &url));
-                match result {
-                    Ok(t) => last_changed = t,
-                    Err(_) => println!("Panic in update_epg!"),
-                }
+                last_changed = update_epg(last_changed, &app, &url);
+                // let result = panic::catch_unwind(|| update_epg(last_changed, app, &url));
+                // match result {
+                // Ok(t) => last_changed = t,
+                // Err(_) => println!("Panic in update_epg!"),
+                // }
                 use rand::Rng;
                 let minute = rand::thread_rng().gen_range(0, 30);
                 thread::sleep(time::Duration::from_secs((3 * 60 + minute) * 60));

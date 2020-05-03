@@ -1,10 +1,21 @@
 
 # Required, do not edit
-database_type = "sqlite"
+database_type = "mysql"
 
-# Required: Absolute or relative path to your database file.
-#           If a relative path is provided, it will be assumed
-#           to be relative to this config file dir.
-database_path = "test.db"
+# Required database info
+database_name = "epg"
+database_user = "epg"
+database_password = "env:MYSQL_PASSWORD"
 
+# Configurable database info
+database_host = "localhost"         # default "localhost"
+database_port = "3306"              # default "3306"
 migration_location = "migrations"  # default "migrations"
+
+# Extra database connection parameters
+# with the format:
+# [database_params]
+# key = "value"
+[database_params]
+
+
