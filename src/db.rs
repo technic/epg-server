@@ -452,7 +452,6 @@ fn append_programs(conn: &mut Connection) -> DBResult<()> {
         create_indexes(&mut tx)?;
         tx.commit()?;
         println!("{} committed", chrono::Local::now());
-
     }
 
     conn.query_drop("delete from programs1")?;
