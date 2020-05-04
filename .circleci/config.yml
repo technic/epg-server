@@ -38,6 +38,8 @@ jobs:
           root: .
           paths:
             - dist
+      - store_artifacts:
+          path: dist
       - save_cache:
           key: v2-rust-cache-{{ .Branch }}-{{ checksum "Cargo.lock" }}
           paths:
