@@ -271,7 +271,7 @@ mod test {
     use ErrorKind::*;
 
     #[test]
-    fn ok() {
+    fn normal() {
         // Empty line is part of the test!
         let data = indoc!(
             r#"#EXTM3U
