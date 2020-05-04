@@ -484,7 +484,7 @@ mod tests {
         update_channel(conn, id, &channel.alias, &channel.name, &channel.icon_url)
     }
 
-    #[test]
+    // #[test]
     fn test_database() {
         if Path::new("test.db").exists() {
             fs::remove_file("test.db").unwrap();
