@@ -12,8 +12,7 @@ create table programs (
   `begin` bigint unsigned not null,
   `end` bigint unsigned not null,
   `title` varchar(16384),
-  `description` text,
-  foreign key (`channel`) references `channels`(`id`)
+  `description` text
 );
 create table programs1 (
   `id` int unsigned auto_increment primary key not null,

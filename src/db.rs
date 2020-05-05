@@ -265,7 +265,7 @@ impl ProgramsDatabase {
                     }
                 }
                 if ins_p % 10000 == 1 {
-                    print!("{} {}", chrono::Local::now(), ins_p);
+                    println!("{} {}", chrono::Local::now(), ins_p);
                 }
             }
             tx.commit()?;
@@ -273,7 +273,7 @@ impl ProgramsDatabase {
 
         print!("{} ", chrono::Local::now());
         println!(
-            "Loaded {} channels and {} programs into sql database in {}s",
+            "Loaded {} channels and {} programs into SQL database in {}s",
             ins_c,
             ins_p,
             t.elapsed().unwrap().as_secs_f32()
@@ -447,14 +447,14 @@ fn insert_program<Q: Queryable>(conn: &mut Q, channel_id: i64, program: &Program
 }
 
 fn create_indexes<Q: Queryable>(conn: &mut Q) -> DBResult<()> {
-    // conn.query_drop("create index channel on programs (channel)")?;
+    conn.query_drop("create index channel on programs (channel)")?;
     conn.query_drop("create index channel_begin on programs (channel, begin)")?;
     conn.query_drop("create index channel_end on programs (channel, end)")?;
     Ok(())
 }
 
 fn drop_indexes<Q: Queryable>(conn: &mut Q) -> DBResult<()> {
-    // conn.query_drop("drop index if exists channel on programs")?;
+    conn.query_drop("drop index if exists channel on programs")?;
     conn.query_drop("drop index if exists channel_begin on programs")?;
     conn.query_drop("drop index if exists channel_end on programs")?;
     Ok(())
@@ -467,36 +467,36 @@ fn append_programs(conn: &mut Connection) -> DBResult<()> {
         let stmt = conn.prep("select distinct p1.channel from programs1 p1")?;
         conn.exec(stmt, ())?
     };
-    {
-        // Remove programs from database, which times conflict with new data
-        let mut total = 0;
-        let mut tx = conn.start_transaction(mysql::TxOpts::default())?;
-        {
-            let stmt = tx.prep(
-                "delete from programs where programs.channel=:id and
+    // {
+    // Remove programs from database, which times conflict with new data
+    let mut total = 0;
+    let mut tx = conn.start_transaction(mysql::TxOpts::default())?;
+    //{
+    let stmt = tx.prep(
+        "delete from programs where programs.channel=:id and
                  programs.begin >= (select min(p1.begin) from programs1 p1 where p1.channel=:id)",
-            )?;
-            for id in channels.iter() {
-                tx.exec_drop(stmt.clone(), params! {id})?;
-                total += tx.affected_rows();
-            }
-        }
-        print!("{} ", chrono::Local::now());
-        println!("Deleted {} conflicting programs from sql database", total);
-
-        // Drop indexes to speed up insert
-        drop_indexes(&mut tx)?;
-        // Copy new data into the database
-        tx.query_drop(
-            "insert into programs (channel, begin, end, title, description)
-             select channel, begin, end, title, description from programs1",
-        )?;
-        print!("{} ", chrono::Local::now());
-        println!("Inserted {} new programs", tx.affected_rows());
-        create_indexes(&mut tx)?;
-        tx.commit()?;
-        println!("{} committed", chrono::Local::now());
+    )?;
+    for id in channels.iter() {
+        tx.exec_drop(stmt.clone(), params! {id})?;
+        total += tx.affected_rows();
     }
+    //}
+    print!("{} ", chrono::Local::now());
+    println!("Deleted {} conflicting programs from sql database", total);
+
+    // Drop indexes to speed up insert
+    drop_indexes(&mut tx)?;
+    // Copy new data into the database
+    tx.query_drop(
+        "insert into programs (channel, begin, end, title, description)
+             select channel, begin, end, title, description from programs1",
+    )?;
+    print!("{} ", chrono::Local::now());
+    println!("Inserted {} new programs", tx.affected_rows());
+    create_indexes(&mut tx)?;
+    tx.commit()?;
+    println!("{} committed", chrono::Local::now());
+    // }
 
     conn.query_drop("delete from programs1")?;
     Ok(())
