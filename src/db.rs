@@ -4,7 +4,10 @@ use crate::xmltv::XmltvReader;
 use chrono::prelude::*;
 use failure::Fail;
 use mysql::prelude::*;
-use mysql::{params, Opts, Pool, PooledConn as Connection, Result as DBResult};
+use mysql::{
+    params, Opts, Params as DBParams, Pool, PooledConn as Connection, Result as DBResult,
+    Value as DBValue,
+};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::error::Error;
@@ -14,6 +17,71 @@ use std::time::SystemTime;
 
 pub struct ProgramsDatabase {
     pool: Pool,
+}
+
+struct BatchInserter {
+    batch_size: u32,
+    cols: Vec<String>,
+    base_stmt: String,
+    row_stmt: String,
+    accumulated: u32,
+    stmt: String,
+    params: Vec<DBValue>,
+}
+
+impl BatchInserter {
+    pub fn new(table: &str, cols: &[&str], batch_size: u32) -> Self {
+        let base_stmt = format!("INSERT INTO {} ({}) VALUES ", table, cols.join(","));
+        let row_stmt = format!(
+            "({})",
+            cols.iter().map(|_| "?").collect::<Vec<_>>().join(",")
+        );
+        Self {
+            batch_size,
+            cols: cols.iter().map(|&s| s.to_owned()).collect(),
+            base_stmt: base_stmt.clone(),
+            row_stmt,
+            accumulated: 0,
+            stmt: base_stmt,
+            params: Vec::new(),
+        }
+    }
+
+    pub fn insert<Q, P>(&mut self, conn: &mut Q, params: P) -> DBResult<()>
+    where
+        Q: Queryable,
+        P: Into<mysql::Params>,
+    {
+        if !self.params.is_empty() {
+            self.stmt.push(',');
+        }
+        self.stmt.push_str(&self.row_stmt);
+        match params.into().into_positional(&self.cols).unwrap() {
+            DBParams::Positional(vec) => {
+                self.params.extend(vec.into_iter());
+            }
+            _ => unreachable!(),
+        }
+        self.accumulated += 1;
+
+        if self.accumulated >= self.batch_size {
+            return self.execute(conn);
+        }
+        Ok(())
+    }
+
+    fn execute<Q: Queryable>(&mut self, conn: &mut Q) -> DBResult<()> {
+        let stmt = conn.prep(&self.stmt)?;
+        let mut tmp = Vec::new();
+        std::mem::swap(&mut tmp, &mut self.params);
+        conn.exec_drop(stmt, tmp)?;
+
+        // reset:
+        self.accumulated = 0;
+        self.stmt = self.base_stmt.clone();
+
+        Ok(())
+    }
 }
 
 impl ProgramsDatabase {
@@ -118,18 +186,18 @@ impl ProgramsDatabase {
         let mut ins_c = 0;
         let mut ins_p = 0;
         let mut result = Ok(());
-        print!("{} ", chrono::Local::now());
+        let t = SystemTime::now();
         println!("Parsing XMLTV entries into database ...");
         // Convert xmltv into sql table
         conn.query_drop("LOCK TABLES `programs1` WRITE")?;
-        let mut v = Vec::new();
         {
             let mut tx = conn.start_transaction(mysql::TxOpts::default())?;
 
-            let stmt = tx.prep(
-                "insert into programs1 (channel, begin, end, title, description) \
-                 values (?, ?, ?, ?, ?)",
-            )?;
+            let mut b = BatchInserter::new(
+                "programs1",
+                &["channel", "begin", "end", "title", "description"],
+                20,
+            );
 
             for item in xmltv {
                 match item {
@@ -173,19 +241,17 @@ impl ProgramsDatabase {
                     }
                     Ok(XmltvItem::Program((alias, program))) => {
                         if let Some(&id) = ids.get(&alias) {
-                            // insert_program(&mut tx, id, &program)?;
-                            // tx.exec_drop(
-                            //     stmt.clone(),
-                            //     (
-                            //         id,
-                            //         program.begin,
-                            //         program.end,
-                            //         &program.title,
-                            //         &program.description,
-                            //     ),
-                            // )?;
-                            // ins_p += 1;
-                            v.push((id, program));
+                            b.insert(
+                                &mut tx,
+                                (
+                                    id,
+                                    program.begin,
+                                    program.end,
+                                    &program.title,
+                                    &program.description,
+                                ),
+                            )?;
+                            ins_p += 1;
                         } else {
                             eprintln!("Skip program for unknown channel {}", alias);
                         }
@@ -198,41 +264,19 @@ impl ProgramsDatabase {
                         break;
                     }
                 }
-                if ins_p % 1000 == 1 {
-                    print!("{} ", chrono::Local::now());
-                    println!("{}", ins_p);
+                if ins_p % 10000 == 1 {
+                    print!("{} {}", chrono::Local::now(), ins_p);
                 }
             }
-
-            println!("{} in vec", chrono::Local::now());
-            // tx.query_drop("set autocommit=0")?;
-            tx.exec_batch(
-                stmt,
-                v.iter().map(|(id, program)| {
-                    if ins_p % 1000 == 1 {
-                        print!("{} ", chrono::Local::now());
-                        println!("{}", ins_p);
-                    }
-                    ins_p += 1;
-                    (
-                        id,
-                        program.begin,
-                        program.end,
-                        &program.title,
-                        &program.description,
-                    )
-                }),
-            )?;
-
-            println!("{} parsed", chrono::Local::now());
             tx.commit()?;
-            // conn.query_drop("set autocommit=1")?;
         }
 
         print!("{} ", chrono::Local::now());
         println!(
-            "Loaded {} channels and {} programs into sql database",
-            ins_c, ins_p
+            "Loaded {} channels and {} programs into sql database in {}s",
+            ins_c,
+            ins_p,
+            t.elapsed().unwrap().as_secs_f32()
         );
 
         // Clear old epg entries from the database

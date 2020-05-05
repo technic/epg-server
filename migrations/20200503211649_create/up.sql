@@ -7,7 +7,7 @@ create table channels (
   `icon_url` varchar(4096)
 );
 create table programs (
-  `id` int auto_increment primary key not null,
+  `id` int unsigned auto_increment primary key not null,
   `channel` bigint not null,
   `begin` bigint unsigned not null,
   `end` bigint unsigned not null,
@@ -16,13 +16,12 @@ create table programs (
   foreign key (`channel`) references `channels`(`id`)
 );
 create table programs1 (
-  `id` int auto_increment primary key not null,
+  `id` int unsigned auto_increment primary key not null,
   `channel` bigint not null,
   `begin` bigint unsigned not null,
   `end` bigint unsigned not null,
   `title` varchar(16384),
-  `description` text,
-  foreign key (`channel`) references `channels`(`id`)
+  `description` text
 );
 
 create index channel on programs (channel)
