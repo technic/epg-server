@@ -306,67 +306,37 @@ impl ProgramsDatabase {
             },
         )?;
         Ok(result)
-        // let it = conn
-        //     .exec_iter(stmt, ())?
-        //     .map(|res| {
-        //         res.and_then(|row| {
-        //             (
-        //                 {
-        //                     let id: i64 = row.get(0)?;
-        //                     id
-        //                 },
-        //                 ChannelInfo {
-        //                     alias: row.get(1)?,
-        //                     name: row.get(2)?,
-        //                     icon_url: row.get(3)?,
-        //                 },
-        //             )
-        //         })
-        //     })
-        //     .filter_map(|item| item.ok());
-        // Ok(it.collect::<Vec<_>>())
     }
 
     pub fn get_at(&self, timestamp: i64, count: i64) -> DBResult<Vec<EpgNow>> {
         let mut conn = self.pool.get_conn()?;
         let stmt = conn.prep(
-            "select
-                channels.id,
-                programs.begin, programs.end, programs.title, programs.description
-             from channels
-             join programs on programs.id in
-             (select programs.id from programs where
-              programs.channel=channels.id AND programs.end > :ts order by programs.end limit :count)",
+            "select t.channel, t.begin, t.end, t.title, t.description from 
+            (SELECT channel, begin, end, title, description, row_number() 
+            OVER (PARTITION BY channel ORDER BY end) AS rnk from programs where end > :ts) 
+            as t where rnk <= :count",
         )?;
 
-        let mut hash: HashMap<i64, EpgNow> = HashMap::new();
-
-        let it = conn.exec_map(
-            stmt,
-            params! {"ts"=> timestamp, count},
-            |(id, begin, end, title, description)| {
-                (
-                    id,
-                    Program {
-                        begin,
-                        end,
-                        title,
-                        description,
-                    },
-                )
-            },
-        )?;
-
-        for (id, program) in it.into_iter() {
-            hash.entry(id)
-                .or_insert(EpgNow {
-                    channel_id: id,
-                    programs: Vec::new(),
-                })
-                .programs
-                .push(program);
+        let ids = conn.query_map("select id from channels", |id: i64| id)?;
+        let mut result = Vec::new();
+        let stmt = conn.prep("select begin, end, title, description from programs where channel=:id and end > :ts order by end limit :count")?;
+        for id in ids.iter() {
+            let programs = conn.exec_map(
+                stmt.clone(),
+                params! {id, "ts" => timestamp, count},
+                |(begin, end, title, description)| Program {
+                    begin,
+                    end,
+                    title,
+                    description,
+                },
+            )?;
+            result.push(EpgNow {
+                channel_id: *id,
+                programs,
+            })
         }
-        Ok(hash.into_iter().map(|(_id, value)| value).collect())
+        Ok(result)
     }
 
     pub fn get_range(&self, id: i64, from: i64, to: i64) -> DBResult<Vec<Program>> {
