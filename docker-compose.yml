@@ -24,6 +24,8 @@ services:
       - ./:/work
       - build:/build
     working_dir: /work
+    ports: 
+      - 3000:3000
 
 volumes:
   db_data: {}
