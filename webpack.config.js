@@ -1,34 +1,25 @@
 
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const path = require('path');
-
-// Extract CSS
-const ExtractTextPlugin = require("extract-text-webpack-plugin");
-const extractCSS = new ExtractTextPlugin('styles.min.css');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const TerserPlugin = require('terser-webpack-plugin');
 
 module.exports = {
-    entry: [
-        './web/js/index.js',
-        './web/style.css'
-    ],
+    entry: {
+        bundle: './web/js/index.js',
+    },
     output: {
         path: path.resolve(__dirname, 'static'),
         filename: 'bundle.min.js'
     },
     plugins: [
         new CleanWebpackPlugin(),
-        extractCSS
+        new MiniCssExtractPlugin({ filename: '[name].min.css' })
     ],
     module: {
         rules: [{
             test: /\.css$/,
-            use: extractCSS.extract([
-                {
-                    loader: 'css-loader',
-                    options: { importLoaders: 1 }
-                },
-                'postcss-loader'
-            ])
+            use: [MiniCssExtractPlugin.loader, 'css-loader']
         },
         {
             test: /\.(woff(2)?|ttf|eot|svg)(\?v=\d+\.\d+\.\d+)?$/,

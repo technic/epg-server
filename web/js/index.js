@@ -1,6 +1,8 @@
 import 'bootstrap/dist/js/bootstrap.js'
 import 'regenerator-runtime/runtime.js';
 
+import './../style/style.css';
+
 import $ from 'jquery'
 import bsCustomFileInput from 'bs-custom-file-input'
 import moment from 'moment'
