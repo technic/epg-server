@@ -350,49 +350,6 @@ impl<R: BufRead> Iterator for XmltvReader<R> {
     }
 }
 
-/*
-pub fn read_xmltv<R: BufRead>(source: R) -> HashMap<i64, Channel> {
-    let t = SystemTime::now();
-
-    let mut channels: HashMap<i64, Channel> = HashMap::new();
-    let reader = XmltvReader::new(source);
-    for item in reader {
-        match item {
-            XmltvItem::Channel(channel) => {
-                if !channels.contains_key(&channel.id) {
-                    channels.insert(channel.id, Channel::from_info(channel));
-                } else {
-                    println!("Duplicate id {}", channel.id)
-                }
-            }
-            XmltvItem::Program((id, program)) => {
-                if id != 0 && channels.contains_key(&id) {
-                    let channel = channels.get_mut(&id).unwrap();
-                    channel.programs.push(program);
-                } else {
-                    if id != 0 {
-                        println!("Unknown id {}", id);
-                    }
-                }
-            }
-        }
-    }
-
-    for mut channel in channels.values_mut() {
-        channel.sort_programs()
-    }
-
-    println!("Loaded epg for {} channels", channels.len());
-    println!(
-        "Total {} programs",
-        channels.values().fold(0, |tot, c| tot + c.programs.len())
-    );
-    println!("Time elapsed: {:?}", t.elapsed().unwrap());
-
-    channels
-}
-*/
-
 #[cfg(test)]
 mod test {
     use super::*;
