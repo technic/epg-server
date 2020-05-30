@@ -236,8 +236,15 @@ impl ChannelParser {
 }
 
 fn to_timestamp(s: &str) -> i64 {
-    let dt = DateTime::parse_from_str(s, "%Y%m%d%H%M%S %z");
-    dt.unwrap().timestamp()
+    if s.find(' ').is_some() {
+        DateTime::parse_from_str(s, "%Y%m%d%H%M%S %z")
+            .unwrap()
+            .timestamp()
+    } else {
+        NaiveDateTime::parse_from_str(s, "%Y%m%d%H%M%S")
+            .unwrap()
+            .timestamp()
+    }
 }
 
 fn get_attribute(name: &str, attributes: Attributes) -> Option<String> {
@@ -385,3 +392,26 @@ pub fn read_xmltv<R: BufRead>(source: R) -> HashMap<i64, Channel> {
     channels
 }
 */
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use chrono::FixedOffset;
+
+    #[test]
+    fn test_date() {
+        let hour = 3600;
+        assert_eq!(
+            to_timestamp("20200530181000 +0200"),
+            FixedOffset::east(2 * hour)
+                .ymd(2020, 05, 30)
+                .and_hms(18, 10, 00)
+                .timestamp()
+        );
+        assert_eq!(
+            to_timestamp("20200530164500"),
+            Utc.ymd(2020, 05, 30).and_hms(16, 45, 00).timestamp()
+        );
+    }
+}
