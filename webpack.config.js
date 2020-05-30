@@ -1,5 +1,8 @@
-// Extract CSS
+
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+const path = require('path');
+
+// Extract CSS
 const ExtractTextPlugin = require("extract-text-webpack-plugin");
 const extractCSS = new ExtractTextPlugin('styles.min.css');
 
@@ -9,7 +12,7 @@ module.exports = {
         './web/style.css'
     ],
     output: {
-        path: __dirname + '/static',
+        path: path.resolve(__dirname, 'static'),
         filename: 'bundle.min.js'
     },
     plugins: [
