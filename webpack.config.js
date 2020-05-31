@@ -3,7 +3,7 @@ const glob = require('glob-all')
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
-const PurgecssPlugin = require('purgecss-webpack-plugin')
+const PurgeCssPlugin = require('purgecss-webpack-plugin')
 const FontminPlugin = require('fontmin-webpack')
 
 const PATHS = {
@@ -22,7 +22,7 @@ module.exports = {
     plugins: [
         new CleanWebpackPlugin(),
         new MiniCssExtractPlugin({ filename: '[name].min.css' }),
-        new PurgecssPlugin({
+        new PurgeCssPlugin({
             paths:
                 glob.sync([`${PATHS.src}/**/*`, `${PATHS.web}/**/*`], { nodir: true })
         }),
