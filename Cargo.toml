@@ -47,7 +47,7 @@ fuzzy_match = "*"
 ngrammatic = "*"
 
 [profile.dev]
-opt-level = 1
+# opt-level = 1
 
 # [[bench]]
 # name = "fuzzy"

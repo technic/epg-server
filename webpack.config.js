@@ -58,5 +58,9 @@ module.exports = {
             }
         }
         ]
-    }
+    },
+    optimization: {
+        usedExports: true,
+        minimizer: [new TerserPlugin()],
+    },
 }
