@@ -1,8 +1,15 @@
-
-const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const path = require('path');
+const glob = require('glob-all')
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
+const PurgecssPlugin = require('purgecss-webpack-plugin')
+const FontminPlugin = require('fontmin-webpack')
+
+const PATHS = {
+    src: path.join(__dirname, 'templates'),
+    web: path.join(__dirname, 'web'),
+}
 
 module.exports = {
     entry: {
@@ -14,12 +21,19 @@ module.exports = {
     },
     plugins: [
         new CleanWebpackPlugin(),
-        new MiniCssExtractPlugin({ filename: '[name].min.css' })
+        new MiniCssExtractPlugin({ filename: '[name].min.css' }),
+        new PurgecssPlugin({
+            paths:
+                glob.sync([`${PATHS.src}/**/*`, `${PATHS.web}/**/*`], { nodir: true })
+        }),
+        new FontminPlugin({
+            autodetect: true,
+        }),
     ],
     module: {
         rules: [{
-            test: /\.css$/,
-            use: [MiniCssExtractPlugin.loader, 'css-loader']
+            test: /\.scss$/,
+            use: [MiniCssExtractPlugin.loader, 'css-loader', 'sass-loader'],
         },
         {
             test: /\.(woff(2)?|ttf|eot|svg)(\?v=\d+\.\d+\.\d+)?$/,
