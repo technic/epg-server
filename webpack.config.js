@@ -5,6 +5,7 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 const PurgeCssPlugin = require('purgecss-webpack-plugin');
 const FontminPlugin = require('fontmin-webpack');
+const CompressionPlugin = require('compression-webpack-plugin');
 
 const PATHS = {
     src: path.join(__dirname, 'templates'),
@@ -29,6 +30,7 @@ module.exports = {
         new FontminPlugin({
             autodetect: true,
         }),
+        new CompressionPlugin(),
     ],
     module: {
         rules: [{

@@ -16,7 +16,10 @@ epg.db-*
 # web
 /node_modules
 static/*.min.js
+static/*.min.js.gz
+static/*.min.js.LICENSE.*
 static/*.min.css
+static/*.min.css.gz
 static/fonts
 # secret
 .env
