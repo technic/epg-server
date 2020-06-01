@@ -1,20 +1,11 @@
-import $ from 'jquery'
+// Include scripts required by babel
+// import "core-js/stable";
+import "regenerator-runtime/runtime";
+
+// Include scripts required for bootstrap features
 import 'bootstrap'
-import 'regenerator-runtime/runtime.js';
 
-import bsCustomFileInput from 'bs-custom-file-input'
-import fromUnixTime from 'date-fns/fromUnixTime'
-import format from 'date-fns/format'
-
-$(document).ready(function () {
-    bsCustomFileInput.init()
-
-    $("span.date").each(function () {
-        const t = $(this).data('timestamp');
-        $(this).text(format(fromUnixTime(t), "HH:mm"));
-    });
-});
-
+// Application
 import './table.js';
 import './playlist.js';
 import './../index.scss';

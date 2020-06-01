@@ -1,4 +1,13 @@
 import $ from 'jquery';
+import fromUnixTime from 'date-fns/fromUnixTime'
+import format from 'date-fns/format'
+
+$(document).ready(function () {
+    $("span.date").each(function () {
+        const t = $(this).data('timestamp');
+        $(this).text(format(fromUnixTime(t), "HH:mm"));
+    });
+});
 
 $(document).ready(function () {
     $('.filterable .btn-filter').click(function () {

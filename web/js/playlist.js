@@ -1,4 +1,5 @@
 import $ from 'jquery';
+import bsCustomFileInput from 'bs-custom-file-input'
 var captcha;
 
 window.onloadCallback = function () {
@@ -39,6 +40,10 @@ window.onloadCallback = function () {
 
     captcha = new Recaptcha('captcha');
 }
+
+$(document).ready(function () {
+    bsCustomFileInput.init()
+})
 
 $(document).ready(function () {
     var changes = {};
