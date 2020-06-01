@@ -1,15 +1,15 @@
 const path = require('path');
-const glob = require('glob-all')
+const glob = require('glob-all');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
-const PurgeCssPlugin = require('purgecss-webpack-plugin')
-const FontminPlugin = require('fontmin-webpack')
+const PurgeCssPlugin = require('purgecss-webpack-plugin');
+const FontminPlugin = require('fontmin-webpack');
 
 const PATHS = {
     src: path.join(__dirname, 'templates'),
     web: path.join(__dirname, 'web'),
-}
+};
 
 module.exports = {
     entry: {
@@ -17,14 +17,14 @@ module.exports = {
     },
     output: {
         path: path.resolve(__dirname, 'static'),
-        filename: 'bundle.min.js'
+        filename: 'bundle.min.js',
     },
     plugins: [
         new CleanWebpackPlugin(),
         new MiniCssExtractPlugin({ filename: '[name].min.css' }),
         new PurgeCssPlugin({
             paths:
-                glob.sync([`${PATHS.src}/**/*`, `${PATHS.web}/**/*`], { nodir: true })
+                glob.sync([`${PATHS.src}/**/*`, `${PATHS.web}/**/*`], { nodir: true }),
         }),
         new FontminPlugin({
             autodetect: true,
@@ -42,10 +42,10 @@ module.exports = {
                     loader: 'file-loader',
                     options: {
                         name: '[name].[ext]',
-                        outputPath: 'fonts/'
-                    }
-                }
-            ]
+                        outputPath: 'fonts/',
+                    },
+                },
+            ],
         },
         {
             test: /\.m?js$/,
@@ -53,14 +53,14 @@ module.exports = {
             use: {
                 loader: 'babel-loader',
                 options: {
-                    presets: ['@babel/preset-env']
-                }
-            }
-        }
-        ]
+                    presets: ['@babel/preset-env'],
+                },
+            },
+        },
+        ],
     },
     optimization: {
         usedExports: true,
         minimizer: [new TerserPlugin()],
     },
-}
+};
