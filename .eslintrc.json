@@ -1,7 +1,8 @@
 {
     "env": {
         "browser": true,
-        "es6": true
+        "es6": true,
+        "jquery": true
     },
     "extends": [
         "google"
@@ -15,5 +16,7 @@
         "sourceType": "module"
     },
     "rules": {
+        // I use `this` with jQuery
+        "no-invalid-this": "off"
     }
 }
