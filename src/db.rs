@@ -535,12 +535,12 @@ mod tests {
         let t = 10;
         let result = db.get_at(t, 2).unwrap();
         {
-            let mut ids = result.iter().map(|r| r.channel_id).collect::<Vec<_>>();
+            let mut ids = result.values().map(|r| r.channel_id).collect::<Vec<_>>();
             ids.sort();
             assert_eq!(ids, vec![1, 2]);
         }
 
-        for r in db.get_at(10, 2).unwrap().iter() {
+        for r in db.get_at(10, 2).unwrap().values() {
             println!("{:?}", r);
             assert!(r.programs.len() <= 2);
             let p1 = r.programs.first().unwrap();
