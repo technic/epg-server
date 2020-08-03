@@ -230,7 +230,7 @@ impl ProgramsDatabase {
         Ok(it.collect::<Vec<_>>())
     }
 
-    pub fn get_at(&self, timestamp: i64, count: i64) -> Result<Vec<EpgNow>> {
+    pub fn get_at(&self, timestamp: i64, count: i64) -> Result<HashMap<i64, EpgNow>> {
         let conn = Connection::open(&self.file)?;
         let mut stmt = conn.prepare(
             "select
@@ -264,7 +264,7 @@ impl ProgramsDatabase {
                 .programs
                 .push(program);
         }
-        Ok(hash.into_iter().map(|(_id, value)| value).collect())
+        Ok(hash)
     }
 
     pub fn get_range(&self, id: i64, from: i64, to: i64) -> Result<Vec<Program>> {

@@ -9,6 +9,7 @@ use multipart::server::iron::Intercept;
 use playlist::PlaylistModel;
 use reqwest::header::{CONTENT_TYPE, LAST_MODIFIED};
 use router::Router;
+use serde::Serializer;
 use serde_derive::Serialize;
 use staticfile::Static;
 use std::collections::HashMap;
@@ -21,7 +22,10 @@ use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    cell::Cell,
+    time::{SystemTime, UNIX_EPOCH},
+};
 use urlencoded::UrlEncodedQuery;
 
 mod db;
@@ -38,21 +42,54 @@ use utils::bad_request;
 use xmltv::XmltvReader;
 
 struct LiveCache {
-    data: Vec<EpgNow>,
+    data: HashMap<i64, EpgNow>,
     begin: i64,
     end: i64,
+}
+
+struct IteratorAdapter<I>(Cell<Option<I>>)
+where
+    I: Iterator,
+    I::Item: serde::Serialize;
+
+impl<I> IteratorAdapter<I>
+where
+    I: Iterator,
+    I::Item: serde::Serialize,
+{
+    fn new(iterator: I) -> Self {
+        Self(Cell::new(Some(iterator)))
+    }
+}
+
+impl<I> serde::Serialize for IteratorAdapter<I>
+where
+    I: Iterator,
+    I::Item: serde::Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if let Some(it) = self.0.replace(None) {
+            serializer.collect_seq(it)
+        } else {
+            use serde::ser::Error;
+            Err(S::Error::custom("attempt to serialize a drained iterator"))
+        }
+    }
 }
 
 impl LiveCache {
     fn new() -> Self {
         LiveCache {
-            data: Vec::new(),
+            data: HashMap::new(),
             begin: 0,
             end: 0,
         }
     }
 
-    fn set_data(&mut self, data: Vec<EpgNow>) {
+    fn set_data(&mut self, data: HashMap<i64, EpgNow>) {
         self.data = data;
         self.recalculate();
     }
@@ -60,14 +97,14 @@ impl LiveCache {
     fn recalculate(&mut self) {
         self.begin = self
             .data
-            .iter()
+            .values()
             .filter_map(|e| e.programs.first().and_then(|p| Some(p.begin)))
             .max()
             .unwrap_or(0);
 
         self.end = self
             .data
-            .iter()
+            .values()
             .filter_map(|e| e.programs.first().and_then(|p| Some(p.end)))
             .min()
             .unwrap_or(0);
@@ -77,12 +114,18 @@ impl LiveCache {
         (self.begin <= t && t <= self.end) && !self.data.is_empty()
     }
 
-    fn to_json(&self) -> String {
-        #[derive(Serialize)]
-        struct JsonResponse<'a> {
-            data: &'a [EpgNow],
-        }
-        serde_json::to_string(&JsonResponse { data: &self.data }).unwrap()
+    fn to_json(&self, ids: Option<&[i64]>) -> String {
+        serde_json::to_string(&match ids {
+            Some(ids) => serde_json::json!({
+                 "data": IteratorAdapter::new(
+                    ids.iter().filter_map(|id| self.data.get(id)),
+                )
+            }),
+            None => serde_json::json!({ "data": IteratorAdapter::new(
+               self.data.values()),
+            }),
+        })
+        .unwrap()
     }
 
     fn clear(&mut self) {
@@ -125,17 +168,17 @@ impl EpgSqlServer {
         Some(self.db.get_range(id, a, b).unwrap())
     }
 
-    fn get_epg_list(&self, time: chrono::DateTime<Utc>) -> String {
+    fn get_epg_list(&self, time: chrono::DateTime<Utc>, ids: Option<&[i64]>) -> String {
         let t = time.timestamp();
         let cache = self.cache.read().unwrap();
         if cache.contains_time(t) {
             println!("Using value from cache");
-            cache.to_json()
+            cache.to_json(ids)
         } else {
             drop(cache);
             let mut cache = self.cache.write().unwrap();
             cache.set_data(self.db.get_at(t, 2).unwrap());
-            cache.to_json()
+            cache.to_json(ids)
         }
     }
 
@@ -259,17 +302,28 @@ fn create_router() -> Router {
 
     fn get_epg_list(req: &mut Request) -> IronResult<Response> {
         let data = req.get::<persistent::Read<EpgSqlServer>>().unwrap();
-        let time = req
-            .get_ref::<UrlEncodedQuery>()
-            .ok()
-            .and_then(|params| params.get("time"))
+        let opt_query = req.get_ref::<UrlEncodedQuery>().ok();
+
+        let time = opt_query
+            .and_then(|query| query.get("time"))
             .and_then(|l| l.last())
             .and_then(|s| s.parse::<i64>().ok())
             .and_then(|ts| Some(Utc.timestamp(ts, 0)))
             .unwrap_or_else(Utc::now);
 
+        let ids = opt_query
+            .and_then(|query| query.get("ids"))
+            .and_then(|l| l.last())
+            .map(|s| {
+                s.split(',')
+                    .map(|id| id.parse::<i64>())
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .transpose()
+            .map_err(bad_request)?;
+
         let t = SystemTime::now();
-        let out = data.get_epg_list(time);
+        let out = data.get_epg_list(time, ids.as_ref().map(Vec::as_slice));
         println!(
             "req processed in {} sec",
             t.elapsed().unwrap().as_secs_f32()
