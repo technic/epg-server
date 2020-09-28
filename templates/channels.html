@@ -29,7 +29,7 @@
       <tbody>
         {% for c in channels %}
         <tr>
-          <td class="icon-col"><img src="{{ c.1.icon_url }}" /></td>
+          <td class="icon-col"><img src="{{ c.1.icon_url }}" loading="lazy"/></td>
           <td>{{ c.1.name }}</td>
           <td>{{ c.1.alias }}</td>
           <td>
