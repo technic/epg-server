@@ -14,7 +14,7 @@
     "url": "git+ssh://git@bitbucket.org/iptvdream/epg-server.git"
   },
   "author": "technic",
-  "license": "ISC",
+  "license": "GPLv3",
   "homepage": "https://bitbucket.org/iptvdream/epg-server#readme",
   "dependencies": {
     "bootstrap": "^4.5.0",
