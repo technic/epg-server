@@ -42,7 +42,7 @@ bencher = "*"
 indoc = "0.3"
 
 ndarray = "*"
-strsim = "0.9"
+strsim = "0.10"
 fuzzy_match = "*"
 ngrammatic = "*"
 
