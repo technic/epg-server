@@ -13,7 +13,7 @@
     "type": "git",
     "url": "git+ssh://git@bitbucket.org/iptvdream/epg-server.git"
   },
-  "author": "",
+  "author": "technic",
   "license": "ISC",
   "homepage": "https://bitbucket.org/iptvdream/epg-server#readme",
   "dependencies": {
