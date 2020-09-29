@@ -2,21 +2,21 @@ import $ from 'jquery';
 import fromUnixTime from 'date-fns/fromUnixTime';
 import format from 'date-fns/format';
 
-$(document).ready(function() {
+$(function() {
   $('span.date').each(function() {
     const t = $(this).data('timestamp');
     $(this).text(format(fromUnixTime(t), 'HH:mm'));
   });
 });
 
-$(document).ready(function() {
-  $('.filterable .btn-filter').click(function() {
+$(function() {
+  $('.filterable .btn-filter').on('click', function() {
     const $panel = $(this).parents('.filterable');
     const $filters = $panel.find('.filters input');
     const $tbody = $panel.find('.table tbody');
     if ($filters.prop('disabled') == true) {
       $filters.prop('disabled', false);
-      $filters.first().focus();
+      $filters.first().trigger("focus");
     } else {
       $filters.val('').prop('disabled', true);
       $tbody.find('.no-result').remove();
@@ -24,10 +24,9 @@ $(document).ready(function() {
     }
   });
 
-  $('.filterable .filters input').keyup(function(e) {
+  $('.filterable .filters input').on('keyup', function(e) {
     /* Ignore tab key */
-    const code = e.keyCode || e.which;
-    if (code == '9') return;
+    if (e.key == 'Tab') return;
     /* Useful DOM data and selectors */
     const $input = $(this);
     const inputContent = $input.val().toLowerCase();

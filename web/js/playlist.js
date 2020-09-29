@@ -41,15 +41,15 @@ window.onloadCallback = function() {
   captcha = new Recaptcha('captcha');
 };
 
-$(document).ready(function() {
+$(function() {
   bsCustomFileInput.init();
 });
 
-$(document).ready(function() {
+$(function() {
   const changes = {};
   let currentItem;
 
-  $('#uploadForm').submit(async function(ev) {
+  $('#uploadForm').on('submit', async function(ev) {
     ev.preventDefault();
     $('#resultRow').hide();
     $('#loader').show();
@@ -71,8 +71,8 @@ $(document).ready(function() {
       $('#loader').hide();
       $('#resultRow').show();
       $('#tableContainer').html(reply);
-      $('#tableContainer').find('.btn.btn-primary').click(edit);
-      $('#tableContainer').find('.btn.btn-secondary').click(markOk);
+      $('#tableContainer').find('.btn.btn-primary').on('click', edit);
+      $('#tableContainer').find('.btn.btn-secondary').on('click', markOk);
     } catch (error) {
       alert(error);
     } finally {
@@ -109,7 +109,7 @@ $(document).ready(function() {
     $(this).closest('tr').removeClass('table-warning');
   }
 
-  $('#suggestions').on('click', 'li', function(e) {
+  $('#suggestions').on('click', 'li', function() {
     $(this).addClass('active').siblings().removeClass('active');
     $('#setButton').attr('disabled', false);
   });
@@ -118,12 +118,12 @@ $(document).ready(function() {
     e.stopPropagation();
   });
 
-  $('#setButton').click(function() {
+  $('#setButton').on('click', function() {
     const text = $('#suggestions').find('li.active').text();
     setText(text);
   });
 
-  $('#clearButton').click(function() {
+  $('#clearButton').on('click', function() {
     const text = '';
     setText(text);
   });
@@ -135,7 +135,7 @@ $(document).ready(function() {
     currentItem.removeClass('table-danger').removeClass('table-warning');
   }
 
-  $('#downloadButton').click(async function() {
+  $('#downloadButton').on('click', async function() {
     try {
       const token = await captcha.execute();
       const formData = new FormData(document.getElementById('downloadForm'));
