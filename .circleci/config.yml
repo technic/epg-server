@@ -14,7 +14,7 @@ jobs:
             rustup component add rustfmt
             cargo install cargo-audit
             cargo fmt -- --check
-            cargo audit
+            cargo audit --ignore RUSTSEC-2020-0031
             cargo build
             cargo test
       - run:
