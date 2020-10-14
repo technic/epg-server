@@ -455,7 +455,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "sprs 0.9.1",
+ "sprs 0.9.2",
  "staticfile",
  "strsim 0.9.3",
  "urlencoded",
@@ -1945,9 +1945,9 @@ dependencies = [
 
 [[package]]
 name = "sprs"
-version = "0.9.1"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37647e1bcc6e2e030ea5b36e3d43487af0f9f685daec6c9e0c0b7ae49b2c110a"
+checksum = "af223d4ccca24188af758c3f08e4b39c0f810bc74597410b174423fbcc3e13d0"
 dependencies = [
  "alga",
  "ndarray",
