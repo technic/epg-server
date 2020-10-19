@@ -893,19 +893,19 @@ dependencies = [
 
 [[package]]
 name = "hyperx"
-version = "0.14.0"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "022adf284f3dea10b423f5b330b614179a74c55af57e57ee4a04ffa8eb8bf360"
+checksum = "2adce67e2c21cd95288ae3d9f2bbb2762cf17c03744628d49679f315ed1e2e58"
 dependencies = [
- "base64 0.10.1",
- "bytes 0.4.12",
- "http 0.1.21",
+ "base64 0.12.3",
+ "bytes 0.5.6",
+ "http 0.2.1",
  "httparse",
+ "httpdate",
  "language-tags",
  "log 0.4.11",
  "mime 0.3.16",
- "percent-encoding 1.0.1",
- "time",
+ "percent-encoding 2.1.0",
  "unicase 2.6.0",
 ]
 
