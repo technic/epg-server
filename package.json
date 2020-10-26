@@ -53,7 +53,7 @@
     "purgecss": "^2.3.0",
     "purgecss-webpack-plugin": "^2.3.0",
     "sass-loader": "^8.0.2",
-    "style-loader": "^1.2.1",
+    "style-loader": "^2.0.0",
     "terser-webpack-plugin": "^3.0.6",
     "typescript": "^3.9.5",
     "webpack": "^4.43.0",
