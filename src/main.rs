@@ -535,7 +535,7 @@ fn main() {
                     Err(_) => println!("Panic in update_epg!"),
                 }
                 use rand::Rng;
-                let minute = rand::thread_rng().gen_range(0, 30);
+                let minute = rand::thread_rng().gen_range(0..30);
                 thread::sleep(time::Duration::from_secs((3 * 60 + minute) * 60));
             }
         }
