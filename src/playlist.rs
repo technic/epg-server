@@ -1,8 +1,9 @@
+use crate::epg::ChannelInfo;
 use crate::m3u;
 use crate::m3u::Playlist;
 use crate::m3u::PlaylistWriter;
 use crate::name_match::VecMatcher;
-use crate::utils::bad_request;
+use crate::utils::{bad_request, server_error};
 use crate::EpgSqlServer;
 use askama::Template;
 use io::Read;
@@ -38,16 +39,11 @@ struct SearchResultItem {
 
 fn process<R: io::BufRead>(
     buf: R,
-    server: &EpgSqlServer,
+    channels: &[ChannelInfo],
 ) -> Result<Vec<ProcessedItem>, m3u::Error> {
     let t = SystemTime::now();
 
     let mut result = Vec::new();
-    let channels = server
-        .get_channels()
-        .into_iter()
-        .map(|(_, c)| c)
-        .collect::<Vec<_>>();
     let dataset = channels.iter().map(|c| c.name.clone()).collect::<Vec<_>>();
     let mut corpus = VecMatcher::new(&dataset, 2);
     for elem in Playlist::open(buf) {
@@ -81,12 +77,7 @@ fn process<R: io::BufRead>(
 }
 
 /// Searches channels with similar name in the database
-fn find(name: &str, server: &EpgSqlServer) -> Vec<SearchResultItem> {
-    let channels = server
-        .get_channels()
-        .into_iter()
-        .map(|(_, c)| c)
-        .collect::<Vec<_>>();
+fn find(name: &str, channels: &[ChannelInfo]) -> Vec<SearchResultItem> {
     let dataset = channels.iter().map(|c| c.name.clone()).collect::<Vec<_>>();
     let mut corpus = VecMatcher::new(&dataset, 2);
     let ret = corpus.search(name, SIM_POSSIBLE, 10);
@@ -104,13 +95,8 @@ fn find(name: &str, server: &EpgSqlServer) -> Vec<SearchResultItem> {
 fn replace_tvg<R: io::BufRead>(
     buf: R,
     replace: HashMap<String, String>,
-    server: &EpgSqlServer,
+    channels: &[ChannelInfo],
 ) -> Result<String, m3u::Error> {
-    let channels = server
-        .get_channels()
-        .into_iter()
-        .map(|(_, c)| c)
-        .collect::<Vec<_>>();
     let aliases = HashMap::<&str, &str>::from_iter(
         channels.iter().map(|c| (c.name.as_str(), c.alias.as_str())),
     );
@@ -215,7 +201,13 @@ impl PlaylistModel {
         }
 
         let file = Self::get_entry(&entries, "playlistFile")?;
-        let channels = process(file, &data).map_err(bad_request)?;
+        let channels = data
+            .get_channels()
+            .map_err(server_error)?
+            .into_iter()
+            .map(|(_, c)| c)
+            .collect::<Vec<_>>();
+        let channels = process(file, &channels).map_err(bad_request)?;
         let mut playlist = PlaylistWriter::new();
         for c in channels.iter() {
             playlist.push(&c.entry)
@@ -253,8 +245,14 @@ impl PlaylistModel {
         struct Json {
             data: Vec<SearchResultItem>,
         }
+        let channels = server
+            .get_channels()
+            .map_err(server_error)?
+            .into_iter()
+            .map(|(_, c)| c)
+            .collect::<Vec<_>>();
         let out = serde_json::to_string(&Json {
-            data: dbg!(find(name, &server)),
+            data: dbg!(find(name, &channels)),
         })
         .map_err(bad_request)?;
         Ok(Response::with((
@@ -288,7 +286,13 @@ impl PlaylistModel {
 
         let replace: HashMap<String, String> =
             serde_json::from_reader(changes).map_err(bad_request)?;
-        let out = replace_tvg(file, replace, &server).map_err(bad_request)?;
+        let channels = server
+            .get_channels()
+            .map_err(server_error)?
+            .into_iter()
+            .map(|(_, c)| c)
+            .collect::<Vec<_>>();
+        let out = replace_tvg(file, replace, &channels).map_err(bad_request)?;
         Ok(Response::with((
             status::Ok,
             "application/mpegurl".parse::<Mime>().unwrap(),

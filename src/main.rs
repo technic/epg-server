@@ -526,7 +526,7 @@ fn main() {
             } else {
                 Box::new(BufReader::new(GzDecoder::new(result)))
             };
-            epg_wrapper.update_data(XmltvReader::new(reader));
+            epg_wrapper.update_data(XmltvReader::new(reader)).unwrap();
             println!("updated epg data");
         } else {
             println!("already up to date");
