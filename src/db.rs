@@ -89,8 +89,9 @@ impl ProgramsDatabase {
     }
 
     fn run_migrations(&self) -> std::result::Result<(), migrant_lib::errors::Error> {
+        let path = fs::canonicalize(PathBuf::from(&self.file))?;
         let settings = migrant_lib::Settings::configure_sqlite()
-            .database_path(fs::canonicalize(PathBuf::from(&self.file)).unwrap())?
+            .database_path(path)?
             .build()?;
         let mut config = migrant_lib::Config::with_settings(&settings);
         config.setup()?;
@@ -201,7 +202,7 @@ impl ProgramsDatabase {
 
         // Clear old epg entries from the database
         let time = Utc::now().naive_utc() - chrono::Duration::days(20);
-        self.delete_before(time.timestamp()).unwrap();
+        self.delete_before(time.timestamp())?;
         // Merge new programs data into database
         append_programs(&mut conn)?;
         // Clean up obsolete channels
