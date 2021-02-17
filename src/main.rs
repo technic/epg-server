@@ -490,8 +490,7 @@ fn main() {
 
     fn update_epg(last_t: HttpDate, epg_wrapper: &Arc<EpgSqlServer>, url: &str) -> HttpDate {
         println!("check for new epg");
-        let client = reqwest::Client::builder().build().unwrap();
-        let result = client.get(url).send().unwrap();
+        let result = reqwest::blocking::get(url).unwrap();
         let t = result
             .headers()
             .get(LAST_MODIFIED)
