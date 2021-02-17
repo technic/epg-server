@@ -18,7 +18,7 @@ use serde_derive::Serialize;
 use std::collections::HashMap;
 use std::io;
 use std::iter::FromIterator;
-use std::time::SystemTime;
+use std::time::Instant;
 use urlencoded::UrlEncodedBody;
 
 pub struct PlaylistModel {}
@@ -42,7 +42,7 @@ fn process<R: io::BufRead>(
     buf: R,
     channels: &[ChannelInfo],
 ) -> Result<Vec<ProcessedItem>, m3u::Error> {
-    let t = SystemTime::now();
+    let t = Instant::now();
 
     let mut result = Vec::new();
     let dataset = channels.iter().map(|c| c.name.clone()).collect::<Vec<_>>();
@@ -70,10 +70,7 @@ fn process<R: io::BufRead>(
         }
     }
 
-    println!(
-        "playlist processed in {}s",
-        t.elapsed().unwrap().as_secs_f32()
-    );
+    println!("playlist processed in {:?}", t.elapsed());
     Ok(result)
 }
 

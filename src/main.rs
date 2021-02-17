@@ -24,7 +24,7 @@ use std::thread;
 use std::time;
 use std::{
     cell::Cell,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Instant, SystemTime, UNIX_EPOCH},
 };
 use urlencoded::UrlEncodedQuery;
 
@@ -150,16 +150,13 @@ impl EpgSqlServer {
     }
 
     fn update_data<R: BufRead>(&self, xmltv: XmltvReader<R>) -> ServerResult<()> {
-        let t = SystemTime::now();
+        let t = Instant::now();
 
         // Load new data
         self.db.load_xmltv(xmltv)?;
         self.cache.write().unwrap().clear();
 
-        println!(
-            "Database transactions took {}s",
-            t.elapsed().unwrap().as_secs_f32()
-        );
+        println!("Database transactions took {:?}", t.elapsed());
         Ok(())
     }
 
@@ -328,16 +325,13 @@ fn create_router() -> Router {
             .transpose()
             .map_err(bad_request)?;
 
-        let t = SystemTime::now();
+        let t = Instant::now();
 
         let out = data
             .get_epg_list(time, ids.as_ref().map(Vec::as_slice))
             .map_err(server_error)?;
 
-        println!(
-            "req processed in {} sec",
-            t.elapsed().unwrap().as_secs_f32()
-        );
+        println!("req processed in {:?}", t.elapsed());
         Ok(Response::with((
             status::Ok,
             "application/json".parse::<Mime>().unwrap(),
