@@ -139,6 +139,8 @@ struct EpgSqlServer {
     db: ProgramsDatabase,
 }
 
+type ServerResult<T> = Result<T, Box<dyn Error + Send + Sync>>;
+
 impl EpgSqlServer {
     fn new(file: &str) -> Self {
         Self {
@@ -147,7 +149,7 @@ impl EpgSqlServer {
         }
     }
 
-    fn update_data<R: BufRead>(&self, xmltv: XmltvReader<R>) -> Result<(), Box<dyn Error>> {
+    fn update_data<R: BufRead>(&self, xmltv: XmltvReader<R>) -> ServerResult<()> {
         let t = SystemTime::now();
 
         // Load new data
@@ -161,11 +163,7 @@ impl EpgSqlServer {
         Ok(())
     }
 
-    fn get_epg_day(
-        &self,
-        id: i64,
-        date: chrono::Date<Utc>,
-    ) -> Result<Vec<Program>, Box<dyn Error + Send + Sync>> {
+    fn get_epg_day(&self, id: i64, date: chrono::Date<Utc>) -> ServerResult<Vec<Program>> {
         println!("get_epg_day {} {}", id, date);
         let a = date.and_hms(0, 0, 0).timestamp();
         let b = date.and_hms(23, 59, 59).timestamp();
@@ -176,7 +174,7 @@ impl EpgSqlServer {
         &self,
         time: chrono::DateTime<Utc>,
         ids: Option<&[i64]>,
-    ) -> Result<String, Box<dyn Error + Send + Sync>> {
+    ) -> ServerResult<String> {
         let t = time.timestamp();
         let cache = self.cache.read().unwrap();
         if cache.contains_time(t) {
@@ -190,7 +188,7 @@ impl EpgSqlServer {
         }
     }
 
-    fn find_channel(&self, id: i64) -> Result<Option<ChannelInfo>, Box<dyn Error + Send + Sync>> {
+    fn find_channel(&self, id: i64) -> ServerResult<Option<ChannelInfo>> {
         // FIXME: shall I ask db to perform search
         self.db
             .get_channels()
@@ -198,13 +196,13 @@ impl EpgSqlServer {
             .map_err(|e| e.into())
     }
 
-    fn get_channels(&self) -> Result<Vec<(i64, ChannelInfo)>, Box<dyn Error + Send + Sync>> {
+    fn get_channels(&self) -> ServerResult<Vec<(i64, ChannelInfo)>> {
         let mut vec = self.db.get_channels()?;
         vec.sort_by(|(_, a), (_, b)| a.name.cmp(&b.name));
         Ok(vec)
     }
 
-    fn get_channels_alias(&self) -> Result<HashMap<String, i64>, Box<dyn Error + Send + Sync>> {
+    fn get_channels_alias(&self) -> ServerResult<HashMap<String, i64>> {
         self.db
             .get_channels()
             .map(|vec| {
@@ -215,7 +213,7 @@ impl EpgSqlServer {
             .map_err(|e| e.into())
     }
 
-    fn get_channels_name(&self) -> Result<HashMap<String, i64>, Box<dyn Error + Send + Sync>> {
+    fn get_channels_name(&self) -> ServerResult<HashMap<String, i64>> {
         self.db
             .get_channels()
             .map(|vec| {
