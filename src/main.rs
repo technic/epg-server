@@ -1,6 +1,6 @@
 use askama::Template;
 use chrono::prelude::*;
-use flate2::read::GzDecoder;
+use flate2::bufread::GzDecoder;
 use hyperx::header::HttpDate;
 use iron::prelude::*;
 use iron::status;
@@ -490,7 +490,13 @@ fn main() {
 
     fn update_epg(last_t: HttpDate, epg_wrapper: &Arc<EpgSqlServer>, url: &str) -> HttpDate {
         println!("check for new epg");
-        let result = reqwest::blocking::get(url).unwrap();
+        static APP_USER_AGENT: &str =
+            concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
+        let client = reqwest::blocking::Client::builder()
+            .user_agent(APP_USER_AGENT)
+            .build()
+            .unwrap();
+        let result = client.get(url).send().unwrap();
         let t = result
             .headers()
             .get(LAST_MODIFIED)
@@ -520,10 +526,11 @@ fn main() {
                     }
                 }
             }
+            let buf_reader = BufReader::new(result);
             let reader: Box<dyn BufRead> = if !zipped {
-                Box::new(BufReader::new(result))
+                Box::new(buf_reader)
             } else {
-                Box::new(BufReader::new(GzDecoder::new(result)))
+                Box::new(BufReader::new(GzDecoder::new(buf_reader)))
             };
             epg_wrapper.update_data(XmltvReader::new(reader)).unwrap();
             println!("updated epg data");
