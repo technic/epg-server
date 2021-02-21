@@ -1,0 +1,1 @@
+create table update_log (time integer primary key, status integer, message text);

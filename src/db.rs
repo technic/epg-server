@@ -1,10 +1,11 @@
 use crate::epg::{ChannelInfo, EpgNow, Program};
+use crate::update_status::UpdateStatus;
 use crate::xmltv::XmltvItem;
 use crate::xmltv::XmltvReader;
 use chrono::prelude::*;
 use error_chain::ChainedError;
 use failure::Fail;
-use rusqlite::types::ToSql;
+use rusqlite::{types::ToSql, OptionalExtension};
 use rusqlite::{Connection, Result, NO_PARAMS};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -104,7 +105,10 @@ impl ProgramsDatabase {
                     .boxed()
             };
         }
-        config.use_migrations(&[make_migration!("20190325100907_channel-alias")])?;
+        config.use_migrations(&[
+            make_migration!("20190325100907_channel-alias"),
+            make_migration!("20210221123809_update-log"),
+        ])?;
         let config = config.reload()?;
         migrant_lib::list(&config)?;
         println!("Applying migrations ...");
@@ -298,6 +302,48 @@ impl ProgramsDatabase {
         println!("Deleted {} rows.", count);
         Ok(())
     }
+
+    pub fn get_last_update(&self) -> Result<Option<UpdateStatus>> {
+        let conn = Connection::open(&self.file)?;
+        conn.query_row(
+            "select time, status, message from update_log order by time desc limit 1",
+            NO_PARAMS,
+            |row| {
+                let t = Utc.timestamp(row.get(0)?, 0);
+                match row.get(1)? {
+                    0 => Ok(UpdateStatus::new_ok(t)),
+                    1 => Ok(UpdateStatus::new_fail(t, row.get(2)?)),
+                    _ => Err(rusqlite::Error::UserFunctionError(
+                        "Bad status value".into(),
+                    )),
+                }
+            },
+        )
+        .optional()
+    }
+
+    pub fn insert_update_status(&self, entry: UpdateStatus) -> Result<()> {
+        let conn = Connection::open(&self.file)?;
+        if let Some(t) = conn
+            .query_row(
+                "select time from update_log where time=?1",
+                rusqlite::params![entry.time.timestamp()],
+                |row| row.get(0),
+            )
+            .optional()?
+        {
+            eprintln!("Overriding previous entry at {}", Utc.timestamp(t, 0));
+        }
+        conn.execute(
+            "insert or replace into update_log (time, status, message) values (?1, ?2, ?3)",
+            rusqlite::params![
+                entry.time.timestamp(),
+                (if entry.succeed { 0 } else { 1 }),
+                entry.message,
+            ],
+        )?;
+        Ok(())
+    }
 }
 
 /// Insert channel into the database return assigned id
@@ -430,10 +476,12 @@ fn clear_channels(conn: &Connection) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    /// Database tests run not in parallel to avoid conflicts
     use crate::db::*;
     use crate::epg::ChannelInfo;
     use crate::epg::Program;
     use rusqlite::Connection;
+    use serial_test::serial;
     use std::fs;
     use std::path::Path;
 
@@ -442,12 +490,17 @@ mod tests {
         update_channel(conn, id, &channel.alias, &channel.name, &channel.icon_url)
     }
 
-    #[test]
-    fn test_database() {
+    fn open_db() -> ProgramsDatabase {
         if Path::new("test.db").exists() {
             fs::remove_file("test.db").unwrap();
         }
-        let db = ProgramsDatabase::open("test.db").unwrap();
+        ProgramsDatabase::open("test.db").unwrap()
+    }
+
+    #[test]
+    #[serial]
+    fn test_database() {
+        let db = open_db();
         let mut conn = Connection::open(&db.file).unwrap();
 
         update_channel_info(
@@ -549,5 +602,27 @@ mod tests {
             let p2 = r.programs.iter().take(2).last().unwrap();
             assert!(p2.begin > t);
         }
+    }
+
+    #[test]
+    #[serial]
+    fn test_update_log() {
+        let db = open_db();
+        assert_eq!(db.get_last_update().unwrap(), None);
+
+        let day = Utc.ymd(2021, 2, 21);
+
+        let st1 = UpdateStatus::new_ok(day.and_hms(10, 10, 0));
+        db.insert_update_status(st1.clone()).unwrap();
+        assert_eq!(db.get_last_update().unwrap(), Some(st1));
+
+        let st2 = UpdateStatus::new_fail(day.and_hms(10, 15, 0), "failure message".to_owned());
+        db.insert_update_status(st2.clone()).unwrap();
+        assert_eq!(db.get_last_update().unwrap(), Some(st2));
+
+        let st3 =
+            UpdateStatus::new_fail(day.and_hms(10, 15, 0), "another failure message".to_owned());
+        db.insert_update_status(st3.clone()).unwrap();
+        assert_eq!(db.get_last_update().unwrap(), Some(st3));
     }
 }

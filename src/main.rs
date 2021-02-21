@@ -35,11 +35,13 @@ mod name_match;
 mod playlist;
 mod utils;
 mod xmltv;
+mod update_status;
 
 use db::ProgramsDatabase;
 use epg::{ChannelInfo, EpgNow, Program};
 use utils::{bad_request, error_with_status, server_error};
 use xmltv::XmltvReader;
+use crate::update_status::UpdateStatus;
 
 struct LiveCache {
     data: HashMap<i64, EpgNow>,
