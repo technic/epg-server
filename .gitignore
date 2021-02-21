@@ -11,6 +11,7 @@ epg.db-*
 # tools
 /sqlite3.exe
 /sqlite3.dll
+/sqlite3.lib
 # python
 /.venv
 # web
