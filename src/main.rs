@@ -486,6 +486,7 @@ fn main() {
             concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
         let client = reqwest::blocking::Client::builder()
             .user_agent(APP_USER_AGENT)
+            .gzip(true)
             .build()
             .unwrap();
         let result = client.get(url).send().unwrap();
