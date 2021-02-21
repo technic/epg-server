@@ -6,7 +6,7 @@ use crate::name_match::VecMatcher;
 use crate::utils::{bad_request, server_error};
 use crate::EpgSqlServer;
 use askama::Template;
-use async_std::task;
+use tokio::runtime::Runtime;
 use io::Read;
 use iron::prelude::*;
 use iron::status;
@@ -193,7 +193,8 @@ impl PlaylistModel {
         Self::get_entry(&entries, RECAPTCHA_KEY)?
             .read_to_string(&mut captcha)
             .map_err(bad_request)?;
-        if let Err(e) = task::block_on(recaptcha::verify(&RECAPTCHA_PRIVATE, &captcha, None)) {
+        let mut rt = Runtime::new().unwrap();
+        if let Err(e) = rt.block_on(recaptcha::verify(&RECAPTCHA_PRIVATE, &captcha, None)) {
             println!("captcha error {}", e);
             return Ok(Response::with((status::Forbidden, "")));
         }
@@ -274,7 +275,8 @@ impl PlaylistModel {
         Self::get_entry(&entries, RECAPTCHA_KEY)?
             .read_to_string(&mut captcha)
             .map_err(bad_request)?;
-        if let Err(e) = task::block_on(recaptcha::verify(&RECAPTCHA_PRIVATE, &captcha, None)) {
+        let mut rt = Runtime::new().unwrap();  // FIXME: spawning too much runtimes!
+        if let Err(e) = rt.block_on(recaptcha::verify(&RECAPTCHA_PRIVATE, &captcha, None)) {
             println!("captcha error {}", e);
             return Ok(Response::with((status::Forbidden, "")));
         }
