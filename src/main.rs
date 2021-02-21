@@ -33,15 +33,15 @@ mod epg;
 mod m3u;
 mod name_match;
 mod playlist;
+mod update_status;
 mod utils;
 mod xmltv;
-mod update_status;
 
+use crate::update_status::UpdateStatus;
 use db::ProgramsDatabase;
 use epg::{ChannelInfo, EpgNow, Program};
 use utils::{bad_request, error_with_status, server_error};
 use xmltv::XmltvReader;
-use crate::update_status::UpdateStatus;
 
 struct LiveCache {
     data: HashMap<i64, EpgNow>,
@@ -224,6 +224,107 @@ impl EpgSqlServer {
     }
 }
 
+struct EpgUpdaterWorker {
+    epg_db: Arc<EpgSqlServer>,
+    url: String,
+    /// Timestamp of recently parsed xmltv data
+    last_modified: HttpDate,
+}
+
+impl EpgUpdaterWorker {
+    fn new(epg_db: Arc<EpgSqlServer>, url: String) -> Self {
+        Self {
+            epg_db,
+            url,
+            last_modified: HttpDate::from(UNIX_EPOCH),
+        }
+    }
+
+    fn run(mut self) -> thread::JoinHandle<()> {
+        use rand::Rng;
+        thread::spawn(move || loop {
+            self.update();
+            let minute = rand::thread_rng().gen_range(0..30);
+            thread::sleep(time::Duration::from_secs((3 * 60 + minute) * 60));
+        })
+    }
+
+    fn update(&mut self) {
+        // Catch panics, so that `run()` continues to retry even when thread panics
+        let st = match panic::catch_unwind(|| self.perform_update()) {
+            Ok(Ok(t)) => {
+                self.last_modified = t;
+                UpdateStatus::new_ok(Utc::now())
+            }
+            Ok(Err(e)) => {
+                eprintln!("Failed to update epg {}", e);
+                UpdateStatus::new_fail(Utc::now(), e.to_string())
+            }
+            Err(_) => {
+                eprintln!("Panic in update epg!");
+                UpdateStatus::new_fail(Utc::now(), "Panic!".to_string())
+            }
+        };
+        self.epg_db
+            .db
+            .insert_update_status(st)
+            .unwrap_or_else(|e| eprintln!("Error in insert status {}", e));
+    }
+
+    fn perform_update(&self) -> ServerResult<HttpDate> {
+        static APP_USER_AGENT: &str =
+            concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
+
+        println!("check for new epg");
+        let client = reqwest::blocking::Client::builder()
+            .user_agent(APP_USER_AGENT)
+            .gzip(true)
+            .build()?;
+        let result = client.get(&self.url).send()?;
+        let t = result
+            .headers()
+            .get(LAST_MODIFIED)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| HttpDate::from_str(s).ok())
+            .unwrap_or(HttpDate::from(SystemTime::now()));
+        println!("last modified {}", t);
+        if t > self.last_modified {
+            println!("loading xmltv");
+            let mut zipped = true;
+            use mime::Mime;
+            if let Some(content_type) = result
+                .headers()
+                .get(CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| Mime::from_str(s).ok())
+            {
+                println!("{:?}", content_type);
+                match (content_type.type_(), content_type.subtype()) {
+                    (_, mime::XML) => zipped = false,
+                    _ => {
+                        // hack to support urls with wrong content-type
+                        if self.url.ends_with("xmltv") {
+                            println!("url ends with 'xmltv' assuming unzipped xml content");
+                            zipped = false;
+                        }
+                    }
+                }
+            }
+            let buf_reader = BufReader::new(result);
+            let reader: Box<dyn BufRead> = if !zipped {
+                Box::new(buf_reader)
+            } else {
+                Box::new(BufReader::new(GzDecoder::new(buf_reader)))
+            };
+            self.epg_db.update_data(XmltvReader::new(reader))?;
+            println!("updated epg data");
+        } else {
+            println!("already up to date");
+        }
+        Ok(t)
+    }
+}
+
 impl iron::typemap::Key for EpgSqlServer {
     type Value = EpgSqlServer;
 }
@@ -381,12 +482,17 @@ fn create_router() -> Router {
         #[derive(Template)]
         #[template(path = "channels.html")]
         struct ChannelsTemplate<'a> {
+            update: &'a Option<UpdateStatus>,
             today: &'a str,
             channels: &'a [(i64, ChannelInfo)],
         }
         Ok(Response::with((
             status::Ok,
             ChannelsTemplate {
+                update: &data
+                    .db
+                    .get_last_update()
+                    .map_err(|e| server_error(Box::new(e)))?,
                 today: &format!("{}", Utc::today().format("%Y.%m.%d")),
                 channels: &data.get_channels().map_err(server_error)?,
             },
@@ -482,77 +588,10 @@ fn main() {
 
     println!("epg server starting");
 
-    fn update_epg(last_t: HttpDate, epg_wrapper: &Arc<EpgSqlServer>, url: &str) -> HttpDate {
-        println!("check for new epg");
-        static APP_USER_AGENT: &str =
-            concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
-        let client = reqwest::blocking::Client::builder()
-            .user_agent(APP_USER_AGENT)
-            .gzip(true)
-            .build()
-            .unwrap();
-        let result = client.get(url).send().unwrap();
-        let t = result
-            .headers()
-            .get(LAST_MODIFIED)
-            .and_then(|v| v.to_str().ok())
-            .and_then(|s| HttpDate::from_str(s).ok())
-            .unwrap_or(HttpDate::from(SystemTime::now()));
-        println!("last modified {}", t);
-        if t > last_t {
-            println!("loading xmltv");
-            let mut zipped = true;
-            use mime::Mime;
-            if let Some(content_type) = result
-                .headers()
-                .get(CONTENT_TYPE)
-                .and_then(|v| v.to_str().ok())
-                .and_then(|s| Mime::from_str(s).ok())
-            {
-                println!("{:?}", content_type);
-                match (content_type.type_(), content_type.subtype()) {
-                    (_, mime::XML) => zipped = false,
-                    _ => {
-                        // hack to support urls with wrong content-type
-                        if url.ends_with("xmltv") {
-                            println!("url ends with 'xmltv' assuming unzipped xml content");
-                            zipped = false;
-                        }
-                    }
-                }
-            }
-            let buf_reader = BufReader::new(result);
-            let reader: Box<dyn BufRead> = if !zipped {
-                Box::new(buf_reader)
-            } else {
-                Box::new(BufReader::new(GzDecoder::new(buf_reader)))
-            };
-            epg_wrapper.update_data(XmltvReader::new(reader)).unwrap();
-            println!("updated epg data");
-        } else {
-            println!("already up to date");
-        }
-        t
-    }
-
     let app = Arc::new(EpgSqlServer::new(&db_path));
 
-    let _child = thread::spawn({
-        let app = app.clone();
-        move || {
-            let mut last_changed = HttpDate::from(UNIX_EPOCH);
-            loop {
-                let result = panic::catch_unwind(|| update_epg(last_changed, &app, &url));
-                match result {
-                    Ok(t) => last_changed = t,
-                    Err(_) => println!("Panic in update_epg!"),
-                }
-                use rand::Rng;
-                let minute = rand::thread_rng().gen_range(0..30);
-                thread::sleep(time::Duration::from_secs((3 * 60 + minute) * 60));
-            }
-        }
-    });
+    let worker = EpgUpdaterWorker::new(app.clone(), url);
+    let _child = worker.run();
 
     let mut mount = Mount::new();
     mount.mount("/", create_router());
