@@ -6,7 +6,6 @@ use crate::name_match::VecMatcher;
 use crate::utils::{bad_request, server_error};
 use crate::EpgSqlServer;
 use askama::Template;
-use tokio::runtime::Runtime;
 use io::Read;
 use iron::prelude::*;
 use iron::status;
@@ -19,6 +18,7 @@ use std::collections::HashMap;
 use std::io;
 use std::iter::FromIterator;
 use std::time::Instant;
+use tokio::runtime::Runtime;
 use urlencoded::UrlEncodedBody;
 
 pub struct PlaylistModel {}
@@ -275,7 +275,7 @@ impl PlaylistModel {
         Self::get_entry(&entries, RECAPTCHA_KEY)?
             .read_to_string(&mut captcha)
             .map_err(bad_request)?;
-        let mut rt = Runtime::new().unwrap();  // FIXME: spawning too much runtimes!
+        let mut rt = Runtime::new().unwrap(); // FIXME: spawning too much runtimes!
         if let Err(e) = rt.block_on(recaptcha::verify(&RECAPTCHA_PRIVATE, &captcha, None)) {
             println!("captcha error {}", e);
             return Ok(Response::with((status::Forbidden, "")));
