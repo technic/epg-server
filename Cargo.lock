@@ -440,7 +440,7 @@ dependencies = [
  "rand 0.8.3",
  "recaptcha",
  "regex",
- "reqwest 0.11.0",
+ "reqwest 0.11.2",
  "router",
  "rusqlite",
  "serde",
@@ -2044,9 +2044,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.11.0"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd281b1030aa675fb90aa994d07187645bb3c8fc756ca766e7c3070b439de9de"
+checksum = "bf12057f289428dbf5c591c74bf10392e4a8003f993405a902f20117019022d4"
 dependencies = [
  "async-compression",
  "base64 0.13.0",
