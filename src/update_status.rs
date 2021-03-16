@@ -1,18 +1,21 @@
 use chrono::prelude::*;
+use std::time::UNIX_EPOCH;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct UpdateStatus {
     pub message: String,
     pub succeed: bool,
     pub time: DateTime<Utc>,
+    pub last_modified: DateTime<Utc>,
 }
 
 impl UpdateStatus {
-    pub fn new_ok(time: DateTime<Utc>) -> Self {
+    pub fn new_ok(time: DateTime<Utc>, last_modified: DateTime<Utc>) -> Self {
         Self {
             message: String::new(),
             succeed: true,
             time,
+            last_modified,
         }
     }
 
@@ -21,6 +24,7 @@ impl UpdateStatus {
             message,
             succeed: false,
             time,
+            last_modified: UNIX_EPOCH.into(),
         }
     }
 

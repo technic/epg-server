@@ -233,10 +233,20 @@ struct EpgUpdaterWorker {
 
 impl EpgUpdaterWorker {
     fn new(epg_db: Arc<EpgSqlServer>, url: String) -> Self {
+        let last_modified: HttpDate = epg_db
+            .db
+            .get_last_update()
+            .unwrap_or_else(|err| {
+                eprintln!("Error in get status {}", err);
+                None
+            })
+            .map_or(UNIX_EPOCH, |st| st.last_modified.into())
+            .into();
+        println!("Last update has file modified at {}", last_modified);
         Self {
             epg_db,
             url,
-            last_modified: HttpDate::from(UNIX_EPOCH),
+            last_modified,
         }
     }
 
@@ -254,7 +264,7 @@ impl EpgUpdaterWorker {
         let st = match panic::catch_unwind(|| self.perform_update()) {
             Ok(Ok(t)) => {
                 self.last_modified = t;
-                UpdateStatus::new_ok(Utc::now())
+                UpdateStatus::new_ok(Utc::now(), SystemTime::from(self.last_modified).into())
             }
             Ok(Err(e)) => {
                 eprintln!("Failed to update epg {}", e);

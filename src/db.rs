@@ -108,6 +108,7 @@ impl ProgramsDatabase {
         config.use_migrations(&[
             make_migration!("20190325100907_channel-alias"),
             make_migration!("20210221123809_update-log"),
+            make_migration!("20210316201302_last-modified-log"),
         ])?;
         let config = config.reload()?;
         migrant_lib::list(&config)?;
@@ -306,12 +307,13 @@ impl ProgramsDatabase {
     pub fn get_last_update(&self) -> Result<Option<UpdateStatus>> {
         let conn = Connection::open(&self.file)?;
         conn.query_row(
-            "select time, status, message from update_log order by time desc limit 1",
+            "select time, status, message, last_modified from update_log order by time desc limit 1",
             NO_PARAMS,
             |row| {
                 let t = Utc.timestamp(row.get(0)?, 0);
+                let modified = Utc.timestamp(row.get(3)?, 0);
                 match row.get(1)? {
-                    0 => Ok(UpdateStatus::new_ok(t)),
+                    0 => Ok(UpdateStatus::new_ok(t, modified)),
                     1 => Ok(UpdateStatus::new_fail(t, row.get(2)?)),
                     _ => Err(rusqlite::Error::UserFunctionError(
                         "Bad status value".into(),
@@ -335,11 +337,12 @@ impl ProgramsDatabase {
             eprintln!("Overriding previous entry at {}", Utc.timestamp(t, 0));
         }
         conn.execute(
-            "insert or replace into update_log (time, status, message) values (?1, ?2, ?3)",
+            "insert or replace into update_log (time, status, message, last_modified) values (?1, ?2, ?3, ?4)",
             rusqlite::params![
                 entry.time.timestamp(),
                 (if entry.succeed { 0 } else { 1 }),
                 entry.message,
+                entry.last_modified.timestamp(),
             ],
         )?;
         Ok(())
@@ -612,7 +615,7 @@ mod tests {
 
         let day = Utc.ymd(2021, 2, 21);
 
-        let st1 = UpdateStatus::new_ok(day.and_hms(10, 10, 0));
+        let st1 = UpdateStatus::new_ok(day.and_hms(10, 10, 0), day.and_hms(0, 0, 5));
         db.insert_update_status(st1.clone()).unwrap();
         assert_eq!(db.get_last_update().unwrap(), Some(st1));
 
