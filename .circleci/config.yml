@@ -6,7 +6,7 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: v2-rust-cache-{{ .Branch }}-
+          key: v3-rust-cache-{{ .Branch }}-
       - run:
           name: Build and test
           command: |
@@ -39,7 +39,7 @@ jobs:
           paths:
             - dist
       - save_cache:
-          key: v2-rust-cache-{{ .Branch }}-{{ checksum "Cargo.lock" }}
+          key: v3-rust-cache-{{ .Branch }}-{{ checksum "Cargo.lock" }}
           paths:
             - "/usr/local/cargo/registry"
             - "./target"
