@@ -12,7 +12,7 @@ jobs:
           command: |
             echo $CARGO_HOME
             rustup component add rustfmt
-            cargo install cargo-audit
+            cargo install --target-dir=target cargo-audit
             cargo fmt -- --check
             cargo audit --ignore RUSTSEC-2020-0031
             cargo build
