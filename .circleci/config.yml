@@ -5,10 +5,15 @@ jobs:
       - image: circleci/rust:1-buster-node
     steps:
       - checkout
+      - run:
+          name: Create cache key file
+          command: |
+            echo $RUST_VERSION > .cargo-cache
+            cat Cargo.lock >> .cargo-cache
       - restore_cache:
           keys:
-            - v3-rust-cache-{{ .Environment.RUST_VERSION }}-{{ .Branch }}-
-            - v3-rust-cache-{{ .Environment.RUST_VERSION }}-
+            - v3-rust-cache-{{ .Branch }}-{{ checksum "Cargo.lock" }}
+            - v3-rust-cache-
       - run:
           name: Prepare
           command: |
@@ -45,7 +50,7 @@ jobs:
           paths:
             - dist
       - save_cache:
-          key: v3-rust-cache-{{ .Environment.RUST_VERSION }}-{{ .Branch }}-{{ checksum "Cargo.lock" }}
+          key: v3-rust-cache-{{ .Branch }}-{{ checksum "Cargo.lock" }}
           paths:
             - "/usr/local/cargo/registry"
             - "./target"
