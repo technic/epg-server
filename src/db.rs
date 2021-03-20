@@ -254,7 +254,8 @@ impl ProgramsDatabase {
                     },
                 ))
             },
-        ).optional()
+        )
+        .optional()
     }
 
     pub fn get_at(&self, timestamp: i64, count: i64) -> Result<HashMap<i64, EpgNow>> {
