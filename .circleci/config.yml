@@ -6,7 +6,9 @@ jobs:
     steps:
       - checkout
       - restore_cache:
-          key: v3-rust-cache-{{ .Environment.RUST_VERSION }}-{{ .Branch }}-
+          keys:
+            - v3-rust-cache-{{ .Environment.RUST_VERSION }}-{{ .Branch }}-
+            - v3-rust-cache-{{ .Environment.RUST_VERSION }}-
       - run:
           name: Build and test
           command: |
