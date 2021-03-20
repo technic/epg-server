@@ -221,10 +221,7 @@ impl ProgramsDatabase {
         let it = stmt
             .query_map(NO_PARAMS, |row| {
                 Ok((
-                    {
-                        let id: i64 = row.get(0)?;
-                        id
-                    },
+                    row.get::<_, i64>(0)?,
                     ChannelInfo {
                         alias: row.get(1)?,
                         name: row.get(2)?,
@@ -243,10 +240,7 @@ impl ProgramsDatabase {
             rusqlite::params![alias],
             |row| {
                 Ok((
-                    {
-                        let id: i64 = row.get(0)?;
-                        id
-                    },
+                    row.get::<_, i64>(0)?,
                     ChannelInfo {
                         alias: row.get(1)?,
                         name: row.get(2)?,
