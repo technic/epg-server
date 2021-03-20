@@ -10,10 +10,14 @@ jobs:
             - v3-rust-cache-{{ .Environment.RUST_VERSION }}-{{ .Branch }}-
             - v3-rust-cache-{{ .Environment.RUST_VERSION }}-
       - run:
-          name: Build and test
+          name: Prepare
           command: |
+            echo $RUST_VERSION
             echo $CARGO_HOME
             rustup component add rustfmt
+      - run:
+          name: Build and test
+          command: |
             cargo install --target-dir=target cargo-audit
             cargo fmt -- --check
             cargo audit --ignore RUSTSEC-2020-0031
