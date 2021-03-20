@@ -10,6 +10,7 @@ jobs:
       - run:
           name: Build and test
           command: |
+            env
             echo $CARGO_HOME
             rustup component add rustfmt
             cargo install --target-dir=target cargo-audit
