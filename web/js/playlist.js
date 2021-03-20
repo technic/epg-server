@@ -96,8 +96,9 @@ $(function() {
     const list = $('#suggestions');
     list.empty();
     for (const item of result['data']) {
+      const alias = encodeURIComponent(item['alias']);
       list.append($('<li>').addClass('list-group-item').addClass('list-group-item-action').text(item['name'])
-          .append(`<a class="btn btn-sm" href="../programs.html?id=${item['alias']}" target="_blank"><i class="fas fa-info-circle"></i></a>`));
+          .append(`<a class="btn btn-sm" href="../programs.html?alias=${alias}" target="_blank"><i class="fas fa-info-circle"></i></a>`));
     }
     $('#setButton').attr('disabled', true);
     const modal = $('#listDialog');

@@ -40,7 +40,7 @@ mod xmltv;
 use crate::update_status::UpdateStatus;
 use db::ProgramsDatabase;
 use epg::{ChannelInfo, EpgNow, Program};
-use utils::{bad_request, error_with_status, server_error};
+use utils::{bad_request, error_with_status, get_parameter, server_error};
 use xmltv::XmltvReader;
 
 struct LiveCache {
@@ -193,6 +193,10 @@ impl EpgSqlServer {
             .get_channels()
             .map(|vec| vec.iter().find(|(i, _c)| *i == id).map(|(_i, c)| c.clone()))
             .map_err(|e| e.into())
+    }
+
+    fn find_channel_by_alias(&self, alias: &str) -> ServerResult<Option<(i64, ChannelInfo)>> {
+        self.db.get_channel_by_alias(alias).map_err(|e| e.into())
     }
 
     fn get_channels(&self) -> ServerResult<Vec<(i64, ChannelInfo)>> {
@@ -378,11 +382,27 @@ fn create_router() -> Router {
         let data = req.get::<persistent::Read<EpgSqlServer>>().unwrap();
         let params = req.get_ref::<UrlEncodedQuery>().map_err(bad_request)?;
         let invalid = || Ok(Response::with((status::BadRequest, "Missing parameters")));
-        let id = match params.get("id").and_then(|l| l.last()) {
-            Some(v) => v.parse::<i64>().map_err(bad_request)?,
-            None => return invalid(),
+        let not_found = || Ok(Response::with((status::NotFound, "Not found")));
+
+        let opt = match get_parameter(&params, "id") {
+            Some(v) => {
+                let id = v.parse::<i64>().map_err(bad_request)?;
+                data.find_channel(id)
+                    .map_err(server_error)?
+                    .map(|info| (id, info))
+            }
+            None => match get_parameter(&params, "alias") {
+                Some(v) => data.find_channel_by_alias(v).map_err(server_error)?,
+                None => return invalid(),
+            },
         };
-        let day = match params.get("day").and_then(|l| l.last()) {
+        let (id, channel) = if let Some(found) = opt {
+            found
+        } else {
+            return not_found();
+        };
+
+        let day = match get_parameter(&params, "day") {
             Some(v) => NaiveDate::parse_from_str(v, "%Y.%m.%d")
                 .map(|d| Utc.from_utc_date(&d))
                 .map_err(bad_request)?,
@@ -399,10 +419,6 @@ fn create_router() -> Router {
             channel: &'a str,
             programs: &'a [Program],
         }
-        let channel = data
-            .find_channel(id)
-            .map_err(server_error)?
-            .unwrap_or(ChannelInfo::new());
         Ok(Response::with((
             status::Ok,
             ChannelsTemplate {

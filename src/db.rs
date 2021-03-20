@@ -236,6 +236,27 @@ impl ProgramsDatabase {
         Ok(it.collect::<Vec<_>>())
     }
 
+    pub fn get_channel_by_alias(&self, alias: &str) -> Result<Option<(i64, ChannelInfo)>> {
+        let conn = Connection::open(&self.file)?;
+        conn.query_row(
+            "select id, alias, name, icon_url from channels where alias = ?1",
+            rusqlite::params![alias],
+            |row| {
+                Ok((
+                    {
+                        let id: i64 = row.get(0)?;
+                        id
+                    },
+                    ChannelInfo {
+                        alias: row.get(1)?,
+                        name: row.get(2)?,
+                        icon_url: row.get(3)?,
+                    },
+                ))
+            },
+        ).optional()
+    }
+
     pub fn get_at(&self, timestamp: i64, count: i64) -> Result<HashMap<i64, EpgNow>> {
         let conn = Connection::open(&self.file)?;
         let mut stmt = conn.prepare(

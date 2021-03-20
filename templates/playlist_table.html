@@ -26,7 +26,7 @@
       <td class="name-col">{{ c.entry.name() }}</td>
       <td class="alias-col">{{ c.name }}
         {% if !c.name.is_empty() -%}
-        <a class="btn btn-sm" href="../programs.html?id={{ c.entry.tvg_id() }}" target="_blank" title="EPG">
+        <a class="btn btn-sm" href="../programs.html?alias={{ c.entry.tvg_id()|urlencode }}" target="_blank" title="EPG">
           <i class="fas fa-info-circle"></i>
         </a>
         {% endif -%}

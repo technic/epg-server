@@ -1,5 +1,6 @@
 use iron::prelude::*;
 use iron::status;
+use std::collections::HashMap;
 use std::error::Error as StdError;
 
 pub fn bad_request<E: StdError + Send + 'static>(error: E) -> IronError {
@@ -24,4 +25,11 @@ where
 {
     let m = (status, error.to_string());
     IronError::new(error, m)
+}
+
+pub fn get_parameter<'a>(
+    params: &'a HashMap<String, Vec<String>>,
+    key: &str,
+) -> Option<&'a String> {
+    params.get(key).and_then(|l| l.last())
 }
