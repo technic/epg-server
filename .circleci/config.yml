@@ -5,14 +5,25 @@ jobs:
       - image: circleci/rust:1-buster-node
     steps:
       - checkout
+      - run:
+          name: Create cache key file
+          command: |
+            echo $RUST_VERSION > .cargo-cache
+            cat Cargo.lock >> .cargo-cache
       - restore_cache:
-          key: v2-rust-cache-{{ .Branch }}-
+          keys:
+            - v3-rust-cache-{{ .Branch }}-{{ checksum "Cargo.lock" }}
+            - v3-rust-cache-
+      - run:
+          name: Prepare
+          command: |
+            echo $RUST_VERSION
+            echo $CARGO_HOME
+            rustup component add rustfmt
       - run:
           name: Build and test
           command: |
-            echo $CARGO_HOME
-            rustup component add rustfmt
-            cargo install cargo-audit
+            cargo install --target-dir=target cargo-audit
             cargo fmt -- --check
             cargo audit --ignore RUSTSEC-2020-0031
             cargo build
@@ -39,7 +50,7 @@ jobs:
           paths:
             - dist
       - save_cache:
-          key: v2-rust-cache-{{ .Branch }}-{{ checksum "Cargo.lock" }}
+          key: v3-rust-cache-{{ .Branch }}-{{ checksum "Cargo.lock" }}
           paths:
             - "/usr/local/cargo/registry"
             - "./target"
