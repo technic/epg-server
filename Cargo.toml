@@ -31,7 +31,7 @@ migrant_lib = { version = "0.29", features = ["d-sqlite"] }
 error-chain = "*"
 askama = { version = "0.10", features = ["with-iron"] }
 askama_iron = "0.10"
-regex = "1.3"
+regex = "1.4"
 lazy_static = "1.4"
 vtext = "0.1.0-alpha.3"
 sprs = "0.6.5"
