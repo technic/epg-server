@@ -11,7 +11,7 @@ mount = "0.4"
 staticfile = "0.5"
 persistent = "*"
 urlencoded = "*"
-multipart = "0.17"
+multipart = "0.18"
 reqwest = { version = "0.11", features = ["blocking", "gzip"] }
 tokio = "0.2"
 hyperx = "0.14"
