@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/rust:1-buster-node
+      - image: cimg/1.53-node
     steps:
       - checkout
       - run:
