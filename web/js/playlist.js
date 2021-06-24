@@ -41,9 +41,9 @@ window.onloadCallback = function() {
   captcha = new Recaptcha('captcha');
 };
 
-function checkAjaxReply(reply) {
-  if (!(reply.status >= 200 && reply.status < 300)) {
-    throw new Error(`${reply.status}: ${reply.statusText}`)
+function checkResponse(response) {
+  if (!response.ok) {
+    throw new Error(`${response.status} ${response.statusText}`)
   }
 }
 
@@ -67,23 +67,22 @@ $(function() {
       await captcha.execute();
       const f = document.getElementById('uploadForm');
       const formData = new FormData(f);
-      const reply = await $.ajax({
-        type: 'POST',
-        url: './index.html',
-        data: formData,
-        processData: false,
-        contentType: false,
+      const response = await fetch('./index.html', {
+        method: 'POST',
+        body: formData,
       });
-      checkAjaxReply(reply);
+      checkResponse(response)
+      const reply = await response.text();
       $('#loader').hide();
       $('#resultRow').show();
       $('#tableContainer').html(reply);
       $('#tableContainer').find('.btn.btn-primary').on('click', edit);
       $('#tableContainer').find('.btn.btn-secondary').on('click', markOk);
     } catch (error) {
-      alert(`${error.name}: ${error.message}`);
+      alert(error)
     } finally {
       captcha.reset();
+      $('#loader').hide();
     }
   });
 
