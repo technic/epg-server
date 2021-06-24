@@ -1,3 +1,5 @@
+#![forbid(non_ascii_idents)]
+
 use askama::Template;
 use chrono::prelude::*;
 use flate2::bufread::GzDecoder;
