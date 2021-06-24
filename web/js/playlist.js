@@ -41,6 +41,12 @@ window.onloadCallback = function() {
   captcha = new Recaptcha('captcha');
 };
 
+function checkAjaxReply(reply) {
+  if (!(reply.status >= 200 && reply.status < 300)) {
+    throw new Error(`${reply.status}: ${reply.statusText}`)
+  }
+}
+
 $(function() {
   bsCustomFileInput.init();
 });
@@ -68,13 +74,14 @@ $(function() {
         processData: false,
         contentType: false,
       });
+      checkAjaxReply(reply);
       $('#loader').hide();
       $('#resultRow').show();
       $('#tableContainer').html(reply);
       $('#tableContainer').find('.btn.btn-primary').on('click', edit);
       $('#tableContainer').find('.btn.btn-secondary').on('click', markOk);
     } catch (error) {
-      alert(error);
+      alert(`${error.name}: ${error.message}`);
     } finally {
       captcha.reset();
     }
