@@ -5,9 +5,9 @@ updates:
     open-pull-requests-limit: 5
     rebase-strategy: auto
     schedule:
-      interval: "daily"
+      interval: "weekly"
 
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
