@@ -93,16 +93,20 @@ impl LiveCache {
         }
     }
 
-    fn set_data(&mut self, data: HashMap<i64, EpgNow>) {
+    fn set_data(&mut self, data: HashMap<i64, EpgNow>, t: i64) {
         self.data = data;
-        self.recalculate();
+        self.recalculate(t);
     }
 
-    fn recalculate(&mut self) {
+    fn recalculate(&mut self, t: i64) {
         self.begin = self
             .data
             .values()
-            .filter_map(|e| e.programs.first().and_then(|p| Some(p.begin)))
+            .filter_map(|e| {
+                e.programs
+                    .first()
+                    .and_then(|p| if p.begin <= t { Some(p.begin) } else { None })
+            })
             .max()
             .unwrap_or(0);
 
@@ -184,7 +188,7 @@ impl EpgSqlServer {
         } else {
             drop(cache);
             let mut cache = self.cache.write().unwrap();
-            cache.set_data(self.db.get_at(t, 2)?);
+            cache.set_data(self.db.get_at(t, 2)?, t);
             cache.to_json(ids).map_err(|e| e.into())
         }
     }
