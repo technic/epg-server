@@ -490,7 +490,7 @@ dependencies = [
  "sprs",
  "staticfile",
  "strsim 0.9.3",
- "tokio 0.2.25",
+ "tokio 1.10.0",
  "urlencoded",
  "vtext",
 ]
