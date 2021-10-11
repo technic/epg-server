@@ -480,7 +480,7 @@ dependencies = [
  "rand 0.8.4",
  "recaptcha",
  "regex",
- "reqwest 0.11.4",
+ "reqwest 0.11.5",
  "router",
  "rusqlite",
  "serde",
@@ -2035,9 +2035,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.11.4"
+version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "246e9f61b9bb77df069a947682be06e31ac43ea37862e244a69f177694ea6d22"
+checksum = "51c732d463dd300362ffb44b7b125f299c23d2990411a4253824630ebc7467fb"
 dependencies = [
  "async-compression",
  "base64 0.13.0",
@@ -2058,6 +2058,7 @@ dependencies = [
  "percent-encoding 2.1.0",
  "pin-project-lite 0.2.7",
  "serde",
+ "serde_json",
  "serde_urlencoded",
  "tokio 1.10.0",
  "tokio-native-tls",
