@@ -1,5 +1,5 @@
 use crate::epg::{ChannelInfo, Program};
-use chrono::prelude::*;
+use chrono::{prelude::*, ParseResult};
 use quick_xml::events::attributes::Attributes;
 use quick_xml::events::Event;
 use quick_xml::Reader;
@@ -104,10 +104,12 @@ impl ProgramParser {
         for a in attributes.filter_map(|a| a.ok()) {
             match a.key {
                 b"start" => {
-                    self.program.begin = to_timestamp(str::from_utf8(a.value.deref()).unwrap_or(""))
+                    self.program.begin =
+                        to_timestamp(str::from_utf8(a.value.deref()).unwrap_or("")).unwrap_or(0)
                 }
                 b"stop" => {
                     self.program.end = to_timestamp(str::from_utf8(a.value.deref()).unwrap_or(""))
+                        .unwrap_or(self.program.begin + 60)
                 }
                 b"channel" => {
                     self.channel_alias = str::from_utf8(a.value.deref()).unwrap_or("").to_string();
@@ -235,15 +237,11 @@ impl ChannelParser {
     }
 }
 
-fn to_timestamp(s: &str) -> i64 {
+fn to_timestamp(s: &str) -> ParseResult<i64> {
     if s.find(' ').is_some() {
-        DateTime::parse_from_str(s, "%Y%m%d%H%M%S %z")
-            .unwrap()
-            .timestamp()
+        DateTime::parse_from_str(s, "%Y%m%d%H%M%S %z").map(|dt| std::cmp::max(dt.timestamp(), 0))
     } else {
-        NaiveDateTime::parse_from_str(s, "%Y%m%d%H%M%S")
-            .unwrap()
-            .timestamp()
+        NaiveDateTime::parse_from_str(s, "%Y%m%d%H%M%S").map(|dt| std::cmp::max(dt.timestamp(), 0))
     }
 }
 
@@ -360,14 +358,14 @@ mod test {
     fn test_date() {
         let hour = 3600;
         assert_eq!(
-            to_timestamp("20200530181000 +0200"),
+            to_timestamp("20200530181000 +0200").unwrap(),
             FixedOffset::east(2 * hour)
                 .ymd(2020, 05, 30)
                 .and_hms(18, 10, 00)
                 .timestamp()
         );
         assert_eq!(
-            to_timestamp("20200530164500"),
+            to_timestamp("20200530164500").unwrap(),
             Utc.ymd(2020, 05, 30).and_hms(16, 45, 00).timestamp()
         );
     }
