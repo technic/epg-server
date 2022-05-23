@@ -48,7 +48,7 @@
     "nukecss-webpack": "^2.0.4",
     "optimize-css-assets-webpack-plugin": "^6.0.1",
     "postcss-import": "^14.0.2",
-    "postcss-loader": "^6.1.1",
+    "postcss-loader": "^7.0.0",
     "postcss-preset-env": "^6.7.0",
     "purgecss": "^4.0.3",
     "purgecss-webpack-plugin": "^4.0.3",
