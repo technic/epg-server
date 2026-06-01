@@ -556,6 +556,13 @@ fn main() {
         .version(VERSION)
         .author("technic93")
         .about("Serves xmltv in json format")
+        .arg(clap::Arg::with_name("address")
+            .long("address")
+            .env("APP_ADDRESS")
+            .takes_value(true)
+            .default_value("localhost")
+            .help("The address to listen to"),
+        )
         .arg(
             clap::Arg::with_name("port")
                 .long("port")
@@ -635,6 +642,6 @@ fn main() {
     chain.link_before(Intercept::default());
 
     Iron::new(chain)
-        .http(format!("localhost:{}", port))
+        .http(format!("{}:{}", args.value_of("address").unwrap_or("localhost"), port))
         .unwrap();
 }
