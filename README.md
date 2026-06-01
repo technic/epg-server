@@ -29,6 +29,20 @@ location /epg-foobar/ {
 }
 ``` 
 
+## Docker Deployment
+
+Build the image:
+
+```bash
+docker build -t epg-server:latest .
+```
+
+Run the container:
+
+```bash
+docker run -p 127.0.0.1:3000:3000 -v epg-data:/app/data -e RUST_LOG=info -e RUST_BACKTRACE=1 -e APP_URL=http://foo.bar/xmltv.xml epg-server:latest
+```
+
 ## Note to developer
 - Keep code clean by using `cargo clippy`
 - Keep dependencies updated with `cargo update`
