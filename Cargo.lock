@@ -480,7 +480,7 @@ dependencies = [
  "rand 0.8.4",
  "recaptcha",
  "regex",
- "reqwest 0.11.4",
+ "reqwest 0.11.9",
  "router",
  "rusqlite",
  "serde",
@@ -714,9 +714,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.3.3"
+version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "825343c4eef0b63f541f8903f395dc5beb362a979b5799a84062527ef1e37726"
+checksum = "0c9de88456263e249e241fcd211d3954e2c9b0ef7ccfc235a444eb367cae3689"
 dependencies = [
  "bytes 1.0.1",
  "fnv",
@@ -895,7 +895,7 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-util",
- "h2 0.3.3",
+ "h2 0.3.10",
  "http 0.2.4",
  "http-body 0.4.3",
  "httparse",
@@ -2035,9 +2035,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.11.4"
+version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "246e9f61b9bb77df069a947682be06e31ac43ea37862e244a69f177694ea6d22"
+checksum = "87f242f1488a539a79bac6dbe7c8609ae43b7914b7736210f239a37cccb32525"
 dependencies = [
  "async-compression",
  "base64 0.13.0",
@@ -2045,6 +2045,7 @@ dependencies = [
  "encoding_rs",
  "futures-core",
  "futures-util",
+ "h2 0.3.10",
  "http 0.2.4",
  "http-body 0.4.3",
  "hyper 0.14.11",
@@ -2058,6 +2059,7 @@ dependencies = [
  "percent-encoding 2.1.0",
  "pin-project-lite 0.2.7",
  "serde",
+ "serde_json",
  "serde_urlencoded",
  "tokio 1.10.0",
  "tokio-native-tls",
