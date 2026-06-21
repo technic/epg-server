@@ -204,15 +204,6 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b25d992356d2eb0ed82172f5248873db5560c4721f564b13cb5193bda5e668e"
-dependencies = [
- "byteorder",
-]
-
-[[package]]
-name = "base64"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
@@ -275,16 +266,6 @@ name = "byteorder"
 version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
-
-[[package]]
-name = "bytes"
-version = "0.4.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "206fdffcfa2df7cbe15601ef46c813fce0965eb3286db6b56c583b814b51c81c"
-dependencies = [
- "byteorder",
- "iovec",
-]
 
 [[package]]
 name = "bytes"
@@ -703,7 +684,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "futures-util",
- "http 0.2.4",
+ "http",
  "indexmap",
  "slab",
  "tokio 0.2.25",
@@ -723,7 +704,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "futures-util",
- "http 0.2.4",
+ "http",
  "indexmap",
  "slab",
  "tokio 1.10.0",
@@ -777,17 +758,6 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "0.1.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6ccf5ede3a895d8856620237b2f02972c1bbc78d2965ad7fe8838d4a0ed41f0"
-dependencies = [
- "bytes 0.4.12",
- "fnv",
- "itoa",
-]
-
-[[package]]
-name = "http"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "527e8c9ac747e28542699a951517aa9a6945af506cd1f2e1b53a576c17b6cc11"
@@ -804,7 +774,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13d5ff830006f7646652e057693569bfe0d51760c0085a071769d142a205111b"
 dependencies = [
  "bytes 0.5.6",
- "http 0.2.4",
+ "http",
 ]
 
 [[package]]
@@ -814,7 +784,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "399c583b2979440c60be0821a6199eca73bc3c8dcd9d070d75ac726e2c6186e5"
 dependencies = [
  "bytes 1.0.1",
- "http 0.2.4",
+ "http",
  "pin-project-lite 0.2.7",
 ]
 
@@ -850,7 +820,7 @@ checksum = "0a0652d9a2609a968c14be1a9ea00bf4b1d64e2e1f53a1b51b6fff3a6e829273"
 dependencies = [
  "base64 0.9.3",
  "httparse",
- "language-tags",
+ "language-tags 0.2.2",
  "log 0.3.9",
  "mime 0.2.6",
  "num_cpus",
@@ -872,7 +842,7 @@ dependencies = [
  "futures-core",
  "futures-util",
  "h2 0.2.7",
- "http 0.2.4",
+ "http",
  "http-body 0.3.1",
  "httparse",
  "httpdate 0.3.2",
@@ -896,7 +866,7 @@ dependencies = [
  "futures-core",
  "futures-util",
  "h2 0.3.3",
- "http 0.2.4",
+ "http",
  "http-body 0.4.3",
  "httparse",
  "httpdate 1.0.1",
@@ -937,19 +907,17 @@ dependencies = [
 
 [[package]]
 name = "hyperx"
-version = "0.14.0"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "022adf284f3dea10b423f5b330b614179a74c55af57e57ee4a04ffa8eb8bf360"
+checksum = "5617e92fc2f2501c3e2bc6ce547cad841adba2bae5b921c7e52510beca6d084c"
 dependencies = [
- "base64 0.10.1",
- "bytes 0.4.12",
- "http 0.1.21",
- "httparse",
- "language-tags",
- "log 0.4.14",
+ "base64 0.13.0",
+ "bytes 1.0.1",
+ "http",
+ "httpdate 1.0.1",
+ "language-tags 0.3.2",
  "mime 0.3.16",
- "percent-encoding 1.0.1",
- "time",
+ "percent-encoding 2.1.0",
  "unicase 2.6.0",
 ]
 
@@ -1087,6 +1055,12 @@ name = "language-tags"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a91d884b6667cd606bb5a69aa0c99ba811a115fc68915e7056ec08a46e93199a"
+
+[[package]]
+name = "language-tags"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4345964bb142484797b161f473a503a434de77149dd8c7427788c6e13379388"
 
 [[package]]
 name = "lazy_static"
@@ -2008,7 +1982,7 @@ dependencies = [
  "encoding_rs",
  "futures-core",
  "futures-util",
- "http 0.2.4",
+ "http",
  "http-body 0.3.1",
  "hyper 0.13.10",
  "hyper-tls 0.4.3",
@@ -2045,7 +2019,7 @@ dependencies = [
  "encoding_rs",
  "futures-core",
  "futures-util",
- "http 0.2.4",
+ "http",
  "http-body 0.4.3",
  "hyper 0.14.11",
  "hyper-tls 0.5.0",
